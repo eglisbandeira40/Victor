@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, gt, sql } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { customers, debts, payments } from "../db/schema.js";
 
@@ -21,17 +21,28 @@ export async function createDebt(params: {
   return created;
 }
 
-/** Saldo devedor = soma de todas as dividas menos soma de todos os pagamentos do cliente. */
-export async function getCustomerBalanceCents(customerId: string): Promise<number> {
+/**
+ * Saldo devedor = soma de todas as dividas menos soma de todos os pagamentos do cliente.
+ * Se `since` for informado (data em que a conta antiga foi arquivada), so conta o que aconteceu depois.
+ */
+export async function getCustomerBalanceCents(customerId: string, since?: Date | null): Promise<number> {
+  const debtWhere = since
+    ? and(eq(debts.customerId, customerId), gt(debts.createdAt, since))
+    : eq(debts.customerId, customerId);
+
+  const paymentWhere = since
+    ? and(eq(payments.customerId, customerId), gt(payments.createdAt, since))
+    : eq(payments.customerId, customerId);
+
   const [debtSum] = await db
     .select({ total: sql<number>`coalesce(sum(${debts.amountCents}), 0)::int` })
     .from(debts)
-    .where(eq(debts.customerId, customerId));
+    .where(debtWhere);
 
   const [paymentSum] = await db
     .select({ total: sql<number>`coalesce(sum(${payments.amountCents}), 0)::int` })
     .from(payments)
-    .where(eq(payments.customerId, customerId));
+    .where(paymentWhere);
 
   return (debtSum?.total ?? 0) - (paymentSum?.total ?? 0);
 }
@@ -44,7 +55,7 @@ export interface OverdueCustomer {
   daysOverdue: number;
 }
 
-/** Clientes com saldo em aberto cuja divida mais antiga passou de `minDays` dias, do mais antigo pro mais recente. */
+/** Clientes com saldo em aberto cuja divida mais antiga (depois de balance_reset_at) passou de `minDays` dias. */
 export async function getOverdueCustomersForMerchant(
   merchantId: string,
   minDays: number
@@ -63,19 +74,22 @@ export async function getOverdueCustomersForMerchant(
       (coalesce(d.total_debt, 0) - coalesce(p.total_paid, 0))::int as balance_cents,
       extract(day from now() - d.oldest_debt_at)::int as days_overdue
     from ${customers} c
-    join (
-      select customer_id, sum(amount_cents) as total_debt, min(created_at) as oldest_debt_at
+    join lateral (
+      select sum(amount_cents) as total_debt, min(created_at) as oldest_debt_at
       from ${debts}
       where merchant_id = ${merchantId}
-      group by customer_id
-    ) d on d.customer_id = c.id
-    left join (
-      select customer_id, sum(amount_cents) as total_paid
+        and customer_id = c.id
+        and created_at > coalesce(c.balance_reset_at, '-infinity'::timestamptz)
+    ) d on true
+    left join lateral (
+      select sum(amount_cents) as total_paid
       from ${payments}
       where merchant_id = ${merchantId}
-      group by customer_id
-    ) p on p.customer_id = c.id
+        and customer_id = c.id
+        and created_at > coalesce(c.balance_reset_at, '-infinity'::timestamptz)
+    ) p on true
     where c.merchant_id = ${merchantId}
+      and d.oldest_debt_at is not null
       and (coalesce(d.total_debt, 0) - coalesce(p.total_paid, 0)) > 0
       and d.oldest_debt_at <= now() - make_interval(days => ${minDays})
     order by d.oldest_debt_at asc

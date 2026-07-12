@@ -22,10 +22,31 @@ export async function getOrCreateCustomer(merchantId: string, name: string) {
   return fallback;
 }
 
-export async function setCustomerPhone(customerId: string, phone: string) {
+export async function registerCustomer(customerId: string, fields: { phone?: string; address?: string }) {
+  const patch: Record<string, unknown> = { updatedAt: new Date() };
+  if (fields.phone) patch.phone = fields.phone;
+  if (fields.address) patch.address = fields.address;
+
+  const [updated] = await db.update(customers).set(patch).where(eq(customers.id, customerId)).returning();
+  return updated;
+}
+
+export async function setCustomerInstallments(customerId: string, installments: number) {
   const [updated] = await db
     .update(customers)
-    .set({ phone, updatedAt: new Date() })
+    .set({ installments, updatedAt: new Date() })
+    .where(eq(customers.id, customerId))
+    .returning();
+
+  return updated;
+}
+
+/** "Exclui" a conta antiga de um cliente sem apagar nada: dividas/pagamentos anteriores a este momento
+ * deixam de contar pro saldo atual, mas continuam no banco pra consulta futura. */
+export async function archiveCustomerBalance(customerId: string) {
+  const [updated] = await db
+    .update(customers)
+    .set({ balanceResetAt: new Date(), installments: null, updatedAt: new Date() })
     .where(eq(customers.id, customerId))
     .returning();
 

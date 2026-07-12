@@ -11,14 +11,19 @@ Implementado até agora:
 - [x] Criação automática de comerciante (na primeira mensagem) e cliente (na primeira dívida)
 - [x] Soma ao saldo existente do cliente quando ele já existe
 - [x] Confirmação no tom de voz do Fiado, com saldo total atualizado
-- [x] Cadastro de telefone do cliente ("telefone do Zé Carlos, 11987654321")
+- [x] Cadastro completo de cliente ("cadastrar Zé Carlos, telefone 11987654321, endereço Rua X")
+- [x] Baixa de pagamento ("Zé Carlos pagou 20 reais")
+- [x] Fechar conta ("fechar a conta do Zé Carlos") — pergunta em quantas vezes vai pagar (informativo;
+      cada parcela é dada baixa normalmente com "Zé pagou X")
+- [x] Excluir/arquivar conta antiga ("excluir a conta do Zé Carlos") — só libera depois de quitada;
+      nada é apagado de verdade, só para de contar pro saldo atual, e o cliente fica pronto pra uma
+      conta nova
 - [x] Alerta semanal de cobrança (job agendado) — lista clientes com 7+ dias de dívida em aberto e
       manda um link `wa.me` pronto por cliente, com a mensagem de cobrança já escrita; o comerciante
       revisa e decide se envia — nunca cobra automaticamente
 
 Ainda não implementado (próximas fases, schema já preparado pra isso):
 - [ ] Consulta de saldo ("Quanto o Zé me deve?", "Quem tá devendo mais de 100?", "Resumo da semana")
-- [ ] Baixa de pagamento ("Zé pagou 20 reais")
 - [ ] Resumo semanal proativo (total em aberto, quantos clientes devendo, quanto foi recebido)
 - [ ] Export CSV / endpoint de visualização de dados
 
@@ -69,10 +74,14 @@ específica, só acompanha o total.
 
 ## Schema
 
-Ver [`src/db/schema.ts`](./src/db/schema.ts) (Drizzle) e [`src/db/migrations/0001_init.sql`](./src/db/migrations/0001_init.sql) (SQL puro, pronto pra colar no SQL editor do Supabase).
+Ver [`src/db/schema.ts`](./src/db/schema.ts) (Drizzle) e as migrations em [`src/db/migrations/`](./src/db/migrations/)
+(SQL puro, prontas pra colar no console do banco).
 
-- `merchants` — dono do comércio: `whatsapp_phone` (único), `business_name`, `plan`
-- `customers` — cliente do comerciante: `name`, `phone` opcional, `merchant_id`; único por `(merchant_id, lower(name))`
+- `merchants` — dono do comércio: `whatsapp_phone` (único), `business_name`, `plan`, `pending_action`
+  (jsonb; guarda uma pergunta em aberto do bot pro comerciante, ex: "quantas parcelas?")
+- `customers` — cliente do comerciante: `name`, `phone`, `address`, `installments`, `balance_reset_at`
+  (corte de "conta arquivada" — dívidas/pagamentos antes disso não contam mais pro saldo), `merchant_id`;
+  único por `(merchant_id, lower(name))`
 - `debts` — dívida: `customer_id`, `merchant_id`, `amount_cents`, `description`, `created_at`
 - `payments` — pagamento: `customer_id`, `merchant_id`, `amount_cents`, `note`, `created_at`
 - `processed_messages` — dedup de retries do webhook (`wa_message_id`)
@@ -109,9 +118,21 @@ Ver [`.env.example`](./.env.example). Resumo:
 
 ### Banco de dados
 
-Rode o SQL de [`src/db/migrations/0001_init.sql`](./src/db/migrations/0001_init.sql) no SQL editor
-do Supabase. Assim que houver uma `DATABASE_URL` acessível localmente, `npm run db:generate` /
-`npm run db:migrate` (drizzle-kit) assumem esse papel a partir da próxima migration.
+Rode as migrations de [`src/db/migrations/`](./src/db/migrations/), em ordem (`0001_init.sql`,
+`0002_account_lifecycle.sql`, ...), no console/SQL editor do seu Postgres. Assim que houver uma
+`DATABASE_URL` acessível localmente, `npm run db:generate` / `npm run db:migrate` (drizzle-kit)
+assumem esse papel a partir da próxima migration.
+
+### Comandos que o comerciante pode mandar hoje
+
+| Mensagem (exemplo)                                                  | O que faz |
+|-----------------------------------------------------------------------|-----------|
+| `Zé Carlos, 45 reais, o almoço de hoje`                                | Registra dívida, soma ao saldo do cliente |
+| `cadastrar Zé Carlos, telefone 11987654321, endereço Rua das Flores 123` | Cadastra/atualiza telefone e endereço |
+| `telefone do Zé Carlos, 11987654321`                                   | Atalho só pro telefone |
+| `Zé Carlos pagou 20 reais`                                             | Dá baixa no pagamento |
+| `fechar a conta do Zé Carlos`                                          | Pergunta em quantas vezes vai pagar (fica aguardando a resposta) |
+| `excluir a conta do Zé Carlos`                                         | Arquiva o histórico antigo (só depois de quitado) |
 
 ## Fluxo implementado (cadastro de dívida)
 

@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/client.js";
-import { merchants } from "../db/schema.js";
+import { merchants, type PendingAction } from "../db/schema.js";
 
 export async function getOrCreateMerchant(whatsappPhone: string) {
   const existing = await db.query.merchants.findFirst({
@@ -28,4 +28,8 @@ export async function getOrCreateMerchant(whatsappPhone: string) {
 
 export async function listMerchants() {
   return db.select().from(merchants);
+}
+
+export async function setPendingAction(merchantId: string, action: PendingAction | null) {
+  await db.update(merchants).set({ pendingAction: action, updatedAt: new Date() }).where(eq(merchants.id, merchantId));
 }

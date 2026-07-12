@@ -4,16 +4,25 @@ import {
   text,
   integer,
   timestamp,
+  jsonb,
   uniqueIndex,
   index,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+
+export interface PendingAction {
+  type: "awaiting_installments";
+  customerId: string;
+  customerName: string;
+  balanceCents: number;
+}
 
 export const merchants = pgTable("merchants", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   whatsappPhone: text("whatsapp_phone").notNull(),
   businessName: text("business_name"),
   plan: text("plan").notNull().default("trial"),
+  pendingAction: jsonb("pending_action").$type<PendingAction | null>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
@@ -25,6 +34,9 @@ export const customers = pgTable("customers", {
   merchantId: uuid("merchant_id").notNull().references(() => merchants.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   phone: text("phone"),
+  address: text("address"),
+  installments: integer("installments"),
+  balanceResetAt: timestamp("balance_reset_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
