@@ -1,12 +1,13 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { processedMessages } from "../db/schema.js";
-import { extractDebt } from "../ai/claude.js";
+import { extractIntent } from "../ai/claude.js";
 import { getOrCreateMerchant } from "../domain/merchants.js";
-import { getOrCreateCustomer } from "../domain/customers.js";
+import { getOrCreateCustomer, setCustomerPhone } from "../domain/customers.js";
 import { createDebt, getCustomerBalanceCents } from "../domain/debts.js";
 import { sendWhatsAppText } from "../whatsapp/client.js";
 import { formatBRL, reaisToCents } from "../utils/currency.js";
+import { normalizePhoneBR } from "../utils/phone.js";
 import { logger } from "../utils/logger.js";
 import type { WhatsAppInboundMessage } from "../whatsapp/types.js";
 
@@ -38,32 +39,47 @@ export async function handleInboundMessage(message: WhatsAppInboundMessage): Pro
     }
 
     const merchant = await getOrCreateMerchant(merchantPhone);
-    const extracted = await extractDebt(message.text.body.trim());
+    const intent = await extractIntent(message.text.body.trim());
 
-    if (!extracted) {
+    if (!intent) {
       await sendWhatsAppText(merchantPhone, FALLBACK_MESSAGE);
       return;
     }
 
-    const customer = await getOrCreateCustomer(merchant.id, extracted.customerName);
-    const amountCents = reaisToCents(extracted.amount);
+    if (intent.type === "record_debt") {
+      const customer = await getOrCreateCustomer(merchant.id, intent.customerName);
+      const amountCents = reaisToCents(intent.amount);
 
-    await createDebt({
-      customerId: customer.id,
-      merchantId: merchant.id,
-      amountCents,
-      description: extracted.description,
-    });
+      await createDebt({
+        customerId: customer.id,
+        merchantId: merchant.id,
+        amountCents,
+        description: intent.description,
+      });
 
-    const balanceCents = await getCustomerBalanceCents(customer.id);
-    const firstName = customer.name.split(" ")[0];
+      const balanceCents = await getCustomerBalanceCents(customer.id);
+      const firstName = customer.name.split(" ")[0];
 
-    const descriptionPart = extracted.description ? ` (${extracted.description})` : "";
-    const reply =
-      `Anotado ✅ ${customer.name} deve ${formatBRL(amountCents)}${descriptionPart}. ` +
-      `No total ${firstName} te deve ${formatBRL(balanceCents)}`;
+      const descriptionPart = intent.description ? ` (${intent.description})` : "";
+      const reply =
+        `Anotado ✅ ${customer.name} deve ${formatBRL(amountCents)}${descriptionPart}. ` +
+        `No total ${firstName} te deve ${formatBRL(balanceCents)}`;
 
-    await sendWhatsAppText(merchantPhone, reply);
+      await sendWhatsAppText(merchantPhone, reply);
+      return;
+    }
+
+    if (intent.type === "set_customer_phone") {
+      const customer = await getOrCreateCustomer(merchant.id, intent.customerName);
+      const phone = normalizePhoneBR(intent.phone);
+      await setCustomerPhone(customer.id, phone);
+
+      const firstName = customer.name.split(" ")[0];
+      const reply = `Telefone de ${customer.name} salvo ✅ Já consigo preparar cobrança pra ${firstName} quando precisar.`;
+
+      await sendWhatsAppText(merchantPhone, reply);
+      return;
+    }
   } catch (err) {
     logger.error("Erro ao processar mensagem", { error: err instanceof Error ? err.message : err });
     await sendWhatsAppText(merchantPhone, ERROR_MESSAGE).catch(() => {

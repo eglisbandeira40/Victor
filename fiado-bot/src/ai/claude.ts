@@ -4,18 +4,16 @@ import { logger } from "../utils/logger.js";
 
 export const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
-export interface RecordDebtExtraction {
-  customerName: string;
-  amount: number;
-  description?: string;
-}
+export type FiadoIntent =
+  | { type: "record_debt"; customerName: string; amount: number; description?: string }
+  | { type: "set_customer_phone"; customerName: string; phone: string };
 
 const RECORD_DEBT_TOOL: Anthropic.Tool = {
   name: "record_debt",
   description:
     "Registra uma nova divida (fiado) de um cliente do comerciante. So chame essa ferramenta quando a mensagem " +
     "descrever claramente uma venda ou consumo fiado: quem comprou/consumiu e quanto ficou devendo. " +
-    "Nao chame para perguntas, pagamentos ou mensagens que nao tragam um nome de cliente e um valor.",
+    "Nao chame para perguntas, pagamentos, telefone de cliente ou mensagens que nao tragam um nome e um valor.",
   input_schema: {
     type: "object",
     properties: {
@@ -36,52 +34,90 @@ const RECORD_DEBT_TOOL: Anthropic.Tool = {
   },
 };
 
+const SET_CUSTOMER_PHONE_TOOL: Anthropic.Tool = {
+  name: "set_customer_phone",
+  description:
+    "Salva ou atualiza o telefone de um cliente pelo nome. So chame essa ferramenta quando a mensagem " +
+    "informar claramente o telefone de um cliente, por exemplo 'telefone do Ze Carlos: 11987654321' ou " +
+    "'Maria, telefone 11912345678'. Nao use pra registrar divida.",
+  input_schema: {
+    type: "object",
+    properties: {
+      customer_name: {
+        type: "string",
+        description: "Nome do cliente dono do telefone, como mencionado na mensagem",
+      },
+      phone: {
+        type: "string",
+        description: "Telefone do cliente, como escrito na mensagem (com ou sem DDD/codigo do pais)",
+      },
+    },
+    required: ["customer_name", "phone"],
+  },
+};
+
 const SYSTEM_PROMPT = `
 Voce e um extrator de dados para o Fiado, um bot de WhatsApp que ajuda donos de pequeno comercio
 (mercadinho, padaria, bar) a controlar fiado dos clientes.
 
 O comerciante manda mensagens curtas e informais em portugues, tipo:
-"Ze Carlos, 45 reais, o almoco de hoje"
-"anota 20 pro Joao, refrigerante"
+"Ze Carlos, 45 reais, o almoco de hoje" -> registrar divida
+"telefone do Ze Carlos, 11987654321" -> salvar telefone do cliente
 
-Sua unica tarefa e decidir se a mensagem esta registrando uma nova divida (fiado) e, se estiver,
-chamar a ferramenta record_debt com os dados extraidos. Se a mensagem nao for claramente um registro
-de divida (por exemplo for uma pergunta de saldo, um aviso de pagamento, ou algo sem nome+valor),
-NAO chame nenhuma ferramenta.
+Sua unica tarefa e decidir qual ferramenta chamar (no maximo uma) com base na mensagem, ou nenhuma se a
+mensagem nao for claramente um desses dois casos (por exemplo for uma pergunta de saldo, um aviso de
+pagamento, ou uma mensagem sem os dados necessarios).
 `.trim();
 
-export async function extractDebt(message: string): Promise<RecordDebtExtraction | null> {
+function isToolUseBlock(block: Anthropic.ContentBlock): block is Anthropic.ToolUseBlock {
+  return block.type === "tool_use";
+}
+
+export async function extractIntent(message: string): Promise<FiadoIntent | null> {
   const response = await anthropic.messages.create({
     model: env.ANTHROPIC_MODEL,
     max_tokens: 512,
     system: SYSTEM_PROMPT,
-    tools: [RECORD_DEBT_TOOL],
-    tool_choice: { type: "auto" },
+    tools: [RECORD_DEBT_TOOL, SET_CUSTOMER_PHONE_TOOL],
+    tool_choice: { type: "auto", disable_parallel_tool_use: true },
     messages: [{ role: "user", content: message }],
   });
 
-  const toolUse = response.content.find(
-    (block): block is Anthropic.ToolUseBlock => block.type === "tool_use" && block.name === "record_debt"
-  );
+  const toolUse = response.content.find(isToolUseBlock);
+  if (!toolUse) return null;
 
-  if (!toolUse) {
-    return null;
+  if (toolUse.name === "record_debt") {
+    const input = toolUse.input as { customer_name?: unknown; amount?: unknown; description?: unknown };
+
+    if (typeof input.customer_name !== "string" || typeof input.amount !== "number") {
+      logger.warn("record_debt chamado com input invalido", { input });
+      return null;
+    }
+    if (!input.customer_name.trim() || !(input.amount > 0)) return null;
+
+    return {
+      type: "record_debt",
+      customerName: input.customer_name.trim(),
+      amount: input.amount,
+      description: typeof input.description === "string" ? input.description.trim() || undefined : undefined,
+    };
   }
 
-  const input = toolUse.input as { customer_name?: unknown; amount?: unknown; description?: unknown };
+  if (toolUse.name === "set_customer_phone") {
+    const input = toolUse.input as { customer_name?: unknown; phone?: unknown };
 
-  if (typeof input.customer_name !== "string" || typeof input.amount !== "number") {
-    logger.warn("record_debt chamado com input invalido", { input });
-    return null;
+    if (typeof input.customer_name !== "string" || typeof input.phone !== "string") {
+      logger.warn("set_customer_phone chamado com input invalido", { input });
+      return null;
+    }
+    if (!input.customer_name.trim() || !input.phone.trim()) return null;
+
+    return {
+      type: "set_customer_phone",
+      customerName: input.customer_name.trim(),
+      phone: input.phone.trim(),
+    };
   }
 
-  if (!input.customer_name.trim() || !(input.amount > 0)) {
-    return null;
-  }
-
-  return {
-    customerName: input.customer_name.trim(),
-    amount: input.amount,
-    description: typeof input.description === "string" ? input.description.trim() || undefined : undefined,
-  };
+  return null;
 }

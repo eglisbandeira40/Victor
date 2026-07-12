@@ -1,6 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import { db } from "../db/client.js";
-import { debts, payments } from "../db/schema.js";
+import { customers, debts, payments } from "../db/schema.js";
 
 export async function createDebt(params: {
   customerId: string;
@@ -34,4 +34,58 @@ export async function getCustomerBalanceCents(customerId: string): Promise<numbe
     .where(eq(payments.customerId, customerId));
 
   return (debtSum?.total ?? 0) - (paymentSum?.total ?? 0);
+}
+
+export interface OverdueCustomer {
+  customerId: string;
+  name: string;
+  phone: string | null;
+  balanceCents: number;
+  daysOverdue: number;
+}
+
+/** Clientes com saldo em aberto cuja divida mais antiga passou de `minDays` dias, do mais antigo pro mais recente. */
+export async function getOverdueCustomersForMerchant(
+  merchantId: string,
+  minDays: number
+): Promise<OverdueCustomer[]> {
+  const rows = await db.execute<{
+    customer_id: string;
+    name: string;
+    phone: string | null;
+    balance_cents: number;
+    days_overdue: number;
+  }>(sql`
+    select
+      c.id as customer_id,
+      c.name as name,
+      c.phone as phone,
+      (coalesce(d.total_debt, 0) - coalesce(p.total_paid, 0))::int as balance_cents,
+      extract(day from now() - d.oldest_debt_at)::int as days_overdue
+    from ${customers} c
+    join (
+      select customer_id, sum(amount_cents) as total_debt, min(created_at) as oldest_debt_at
+      from ${debts}
+      where merchant_id = ${merchantId}
+      group by customer_id
+    ) d on d.customer_id = c.id
+    left join (
+      select customer_id, sum(amount_cents) as total_paid
+      from ${payments}
+      where merchant_id = ${merchantId}
+      group by customer_id
+    ) p on p.customer_id = c.id
+    where c.merchant_id = ${merchantId}
+      and (coalesce(d.total_debt, 0) - coalesce(p.total_paid, 0)) > 0
+      and d.oldest_debt_at <= now() - make_interval(days => ${minDays})
+    order by d.oldest_debt_at asc
+  `);
+
+  return rows.map((row) => ({
+    customerId: row.customer_id,
+    name: row.name,
+    phone: row.phone,
+    balanceCents: row.balance_cents,
+    daysOverdue: row.days_overdue,
+  }));
 }

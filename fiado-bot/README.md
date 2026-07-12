@@ -4,19 +4,22 @@ Bot de WhatsApp para donos de mercadinho, padaria e bar controlarem quem deve o 
 
 ## Status do MVP
 
-Implementado nesta fase (item 1 do escopo — o coração do produto):
+Implementado até agora:
 
 - [x] Webhook do WhatsApp Business Cloud API (verificação + recebimento de mensagens)
 - [x] Cadastro de dívida por linguagem natural ("Zé Carlos, 45 reais, o almoço de hoje")
 - [x] Criação automática de comerciante (na primeira mensagem) e cliente (na primeira dívida)
 - [x] Soma ao saldo existente do cliente quando ele já existe
 - [x] Confirmação no tom de voz do Fiado, com saldo total atualizado
+- [x] Cadastro de telefone do cliente ("telefone do Zé Carlos, 11987654321")
+- [x] Alerta semanal de cobrança (job agendado) — lista clientes com 7+ dias de dívida em aberto e
+      manda um link `wa.me` pronto por cliente, com a mensagem de cobrança já escrita; o comerciante
+      revisa e decide se envia — nunca cobra automaticamente
 
 Ainda não implementado (próximas fases, schema já preparado pra isso):
 - [ ] Consulta de saldo ("Quanto o Zé me deve?", "Quem tá devendo mais de 100?", "Resumo da semana")
 - [ ] Baixa de pagamento ("Zé pagou 20 reais")
-- [ ] Lembrete semanal automático (job agendado, com aprovação do comerciante antes de enviar)
-- [ ] Resumo semanal proativo
+- [ ] Resumo semanal proativo (total em aberto, quantos clientes devendo, quanto foi recebido)
 - [ ] Export CSV / endpoint de visualização de dados
 
 ## Arquitetura
@@ -76,11 +79,12 @@ Ver [`src/db/schema.ts`](./src/db/schema.ts) (Drizzle) e [`src/db/migrations/000
 
 ## Endpoints
 
-| Método | Rota        | Descrição                                                        |
-|--------|-------------|--------------------------------------------------------------------|
-| GET    | `/health`   | Healthcheck                                                       |
-| GET    | `/webhook`  | Verificação do webhook do Meta (`hub.challenge`)                  |
-| POST   | `/webhook`  | Recebe mensagens do WhatsApp — o coração do sistema               |
+| Método | Rota                          | Descrição                                                          |
+|--------|-------------------------------|----------------------------------------------------------------------|
+| GET    | `/health`                     | Healthcheck                                                         |
+| GET    | `/webhook`                    | Verificação do webhook do Meta (`hub.challenge`)                    |
+| POST   | `/webhook`                    | Recebe mensagens do WhatsApp — o coração do sistema                 |
+| POST   | `/internal/run-weekly-check`  | Dispara o job semanal de cobrança na hora (`?token=WHATSAPP_VERIFY_TOKEN`), pra teste/depuração |
 
 ## Rodando localmente
 
@@ -120,6 +124,35 @@ do Supabase. Assim que houver uma `DATABASE_URL` acessível localmente, `npm run
 6. Insere a `debt`
 7. Calcula o saldo total do cliente (soma de dívidas − soma de pagamentos)
 8. Responde: `"Anotado ✅ Zé Carlos deve R$ 45,00 (almoço de hoje). No total Zé te deve R$ 45,00"`
+
+## Alerta de cobrança (job semanal)
+
+Toda segunda às 9h (`America/Sao_Paulo`), o Fiado varre todos os merchants e, pra cada um, calcula quais
+clientes têm saldo em aberto com a dívida mais antiga passando de `OVERDUE_THRESHOLD_DAYS` (7 dias, ver
+[`src/jobs/weeklyCollectionReminder.ts`](./src/jobs/weeklyCollectionReminder.ts)). Se houver algum, manda
+pro comerciante um resumo assim:
+
+```
+📋 Cobranças da semana
+
+Esses clientes estão devendo há mais de 7 dias:
+
+1) Zé Carlos — R$ 45,00 (9 dias)
+👉 https://wa.me/5511987654321?text=Oi%20Ze...
+
+2) Maria Souza — R$ 120,00 (15 dias)
+❓ Sem telefone salvo. Manda assim: telefone da Maria Souza, DDD e número
+
+Total parado: R$ 165,00 com 2 cliente(s)
+```
+
+Cada link `wa.me` já abre o WhatsApp do cliente com a mensagem de cobrança pronta — o comerciante só
+revisa e aperta enviar. O Fiado **nunca manda a cobrança direto pro cliente final**; isso evita precisar
+de número de destinatário aprovado ou mensagem-template paga, e mantém o comerciante no controle.
+
+Pra clientes sem telefone salvo, o comerciante ensina com `telefone do Zé Carlos, 11987654321`.
+
+Pra testar sem esperar segunda-feira: `POST /internal/run-weekly-check?token=SEU_WHATSAPP_VERIFY_TOKEN`.
 
 ## Deploy
 

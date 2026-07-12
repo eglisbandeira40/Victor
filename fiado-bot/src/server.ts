@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import { registerWebhookRoutes } from "./routes/webhook.js";
+import { registerInternalRoutes } from "./routes/internal.js";
 import { logger } from "./utils/logger.js";
 
 declare module "fastify" {
@@ -25,6 +26,7 @@ export function buildServer() {
   app.get("/health", async () => ({ status: "ok" }));
 
   app.register(registerWebhookRoutes);
+  app.register(registerInternalRoutes);
 
   app.setErrorHandler((error: Error, _request, reply) => {
     logger.error("Erro nao tratado na requisicao", { error: error.message });

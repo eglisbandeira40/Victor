@@ -21,3 +21,13 @@ export async function getOrCreateCustomer(merchantId: string, name: string) {
   if (!fallback) throw new Error(`Nao foi possivel obter/criar cliente "${name}" para merchant ${merchantId}`);
   return fallback;
 }
+
+export async function setCustomerPhone(customerId: string, phone: string) {
+  const [updated] = await db
+    .update(customers)
+    .set({ phone, updatedAt: new Date() })
+    .where(eq(customers.id, customerId))
+    .returning();
+
+  return updated;
+}

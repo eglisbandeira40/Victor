@@ -25,3 +25,7 @@ export async function getOrCreateMerchant(whatsappPhone: string) {
   if (!fallback) throw new Error(`Nao foi possivel obter/criar merchant para ${whatsappPhone}`);
   return fallback;
 }
+
+export async function listMerchants() {
+  return db.select().from(merchants);
+}
