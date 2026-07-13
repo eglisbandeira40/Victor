@@ -69,7 +69,8 @@ export async function getMonthlyStatement(merchantId: string): Promise<MonthlySt
   return {
     entries,
     totalPaidMonthCents: entries.reduce((sum, e) => sum + e.paidMonthCents, 0),
-    totalRemainingCents: entries.reduce((sum, e) => sum + e.remainingCents, 0),
+    // So soma quem realmente deve - credito (saldo negativo) nao pode abater o total em aberto de quem deve.
+    totalRemainingCents: entries.reduce((sum, e) => sum + Math.max(e.remainingCents, 0), 0),
   };
 }
 
@@ -81,9 +82,13 @@ export function formatMonthlyStatement(statement: MonthlyStatement): string {
     return `🧾 *Extrato de ${capitalizedMonth}*\n\nNada pago nem em aberto esse mês ainda.`;
   }
 
-  const lines = statement.entries.map(
-    (e) => `${e.name} — pagou ${formatBRL(e.paidMonthCents)} | falta ${formatBRL(e.remainingCents)}`
-  );
+  const lines = statement.entries.map((e) => {
+    const remainingLabel =
+      e.remainingCents < 0
+        ? `tem ${formatBRL(Math.abs(e.remainingCents))} de crédito`
+        : `falta ${formatBRL(e.remainingCents)}`;
+    return `${e.name} — pagou ${formatBRL(e.paidMonthCents)} | ${remainingLabel}`;
+  });
 
   return (
     `🧾 *Extrato de ${capitalizedMonth}*\n\n${lines.join("\n")}\n\n` +
