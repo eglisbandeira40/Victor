@@ -10,10 +10,17 @@ import {
   setCustomerInstallments,
   archiveCustomerBalance,
 } from "../domain/customers.js";
-import { createDebt, getCustomerBalanceCents, getCustomerBalancesForMerchant } from "../domain/debts.js";
+import {
+  createDebt,
+  getCustomerBalanceCents,
+  getCustomerBalancesForMerchant,
+  getOverdueCustomersForMerchant,
+} from "../domain/debts.js";
 import { createPayment } from "../domain/payments.js";
 import { getCustomerHistory } from "../domain/history.js";
 import { getMerchantSummary, formatSummaryMessage } from "../domain/summary.js";
+import { getMonthlyStatement, formatMonthlyStatement } from "../domain/monthlyStatement.js";
+import { OVERDUE_THRESHOLD_DAYS, buildOverdueList } from "../jobs/weeklyCollectionReminder.js";
 import { sendWhatsAppText } from "../whatsapp/client.js";
 import { formatBRL, reaisToCents } from "../utils/currency.js";
 import { normalizePhoneBR, formatPhoneDisplay } from "../utils/phone.js";
@@ -357,6 +364,27 @@ export async function handleInboundMessage(message: WhatsAppInboundMessage): Pro
       case "weekly_summary": {
         const summary = await getMerchantSummary(merchant.id);
         await sendWhatsAppText(merchantPhone, formatSummaryMessage(summary));
+        break;
+      }
+
+      case "monthly_statement": {
+        const statement = await getMonthlyStatement(merchant.id);
+        await sendWhatsAppText(merchantPhone, formatMonthlyStatement(statement));
+        break;
+      }
+
+      case "list_defaulters": {
+        const overdue = await getOverdueCustomersForMerchant(merchant.id, OVERDUE_THRESHOLD_DAYS);
+
+        if (overdue.length === 0) {
+          await sendWhatsAppText(
+            merchantPhone,
+            `Nenhum cliente inadimplente (mais de ${OVERDUE_THRESHOLD_DAYS} dias) no momento 👍`
+          );
+          break;
+        }
+
+        await sendWhatsAppText(merchantPhone, buildOverdueList(merchant.businessName, overdue));
         break;
       }
     }

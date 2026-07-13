@@ -30,6 +30,10 @@ Implementado até agora:
       reais?" ou "quem tá devendo?" (lista geral, do maior devedor pro menor)
 - [x] Resumo geral — "resumo da semana" ou "como está o caixa" (total em aberto, clientes devendo,
       recebido nos últimos 7 dias), sob demanda **e** proativo toda segunda de manhã
+- [x] Extrato mensal — "extrato do mês" (quanto cada cliente pagou nesse mês e quanto ainda falta, com
+      totais no final)
+- [x] Lista de inadimplentes sob demanda — "quem está inadimplente?" (mesma lista com link `wa.me` de
+      cobrança pronta do alerta semanal, mas disparada na hora, quando o comerciante quiser)
 
 Ainda não implementado (próximas fases, schema já preparado pra isso):
 - [ ] Export CSV / endpoint de visualização de dados
@@ -145,6 +149,8 @@ Assim que houver uma `DATABASE_URL` acessível localmente, `npm run db:generate`
 | `quanto o Zé Carlos me deve?`                              | Saldo desse cliente específico |
 | `quem tá devendo mais de 100 reais?` / `quem tá devendo?`  | Lista geral de devedores, do maior pro menor |
 | `resumo da semana` / `como está o caixa`                   | Total em aberto, clientes devendo, recebido nos últimos 7 dias |
+| `extrato do mês` / `extrato mensal`                        | Quanto cada cliente pagou esse mês e quanto ainda falta, com totais |
+| `quem está inadimplente?` / `clientes inadimplentes`       | Lista de inadimplentes (7+ dias) com link de cobrança pronto — igual ao alerta semanal, mas sob demanda |
 
 ## Fluxo implementado (cadastro de dívida)
 

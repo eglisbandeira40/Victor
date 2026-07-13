@@ -17,7 +17,8 @@ function buildCollectionMessage(businessName: string | null, customer: OverdueCu
   );
 }
 
-function buildOverdueList(businessName: string | null, overdue: OverdueCustomer[]): string {
+/** Lista de inadimplentes (7+ dias sem pagamento), cada um ja com link wa.me de cobranca pronto. */
+export function buildOverdueList(businessName: string | null, overdue: OverdueCustomer[]): string {
   const lines = overdue.map((customer, i) => {
     const header = `${i + 1}) ${customer.name} — ${formatBRL(customer.balanceCents)} (${customer.daysOverdue} dias)`;
 
@@ -35,7 +36,7 @@ function buildOverdueList(businessName: string | null, overdue: OverdueCustomer[
   const totalCents = overdue.reduce((sum, c) => sum + c.balanceCents, 0);
 
   return (
-    `📋 *Cobranças da semana*\n\n` +
+    `📋 *Clientes inadimplentes*\n\n` +
     `Esses clientes estão devendo há mais de ${OVERDUE_THRESHOLD_DAYS} dias:\n\n` +
     `${lines.join("\n\n")}\n\n` +
     `Total parado: ${formatBRL(totalCents)} com ${overdue.length} cliente(s)`

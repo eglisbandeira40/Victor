@@ -13,7 +13,9 @@ export type FiadoIntent =
   | { type: "purchase_history"; customerName: string }
   | { type: "query_balance"; customerName: string }
   | { type: "query_debtors"; minAmount?: number }
-  | { type: "weekly_summary" };
+  | { type: "weekly_summary" }
+  | { type: "monthly_statement" }
+  | { type: "list_defaulters" };
 
 const RECORD_DEBT_TOOL: Anthropic.Tool = {
   name: "record_debt",
@@ -95,9 +97,10 @@ const ARCHIVE_ACCOUNT_TOOL: Anthropic.Tool = {
 const PURCHASE_HISTORY_TOOL: Anthropic.Tool = {
   name: "purchase_history",
   description:
-    "Mostra o historico de compras e pagamentos de um cliente. So chame quando a mensagem pedir claramente " +
-    "pra ver o historico, extrato ou lista de compras de alguem, por exemplo 'historico do Ze Carlos' ou " +
-    "'extrato da Maria'. Nao chame pra registrar divida nova nem pagamento.",
+    "Mostra o historico de compras e pagamentos de UM cliente especifico, mencionado pelo nome. So chame " +
+    "quando a mensagem pedir claramente pra ver o historico ou lista de compras de alguem, por exemplo " +
+    "'historico do Ze Carlos'. Nao chame pra registrar divida nova, pagamento, nem para o extrato mensal " +
+    "geral do negocio (isso e outra ferramenta, monthly_statement).",
   input_schema: {
     type: "object",
     properties: {
@@ -145,6 +148,26 @@ const WEEKLY_SUMMARY_TOOL: Anthropic.Tool = {
   input_schema: { type: "object", properties: {}, required: [] },
 };
 
+const MONTHLY_STATEMENT_TOOL: Anthropic.Tool = {
+  name: "monthly_statement",
+  description:
+    "Mostra o extrato mensal do negocio inteiro: pra cada cliente com movimentacao, quanto ele pagou nesse " +
+    "mes e quanto ainda falta (saldo atual), com totais no final. Chame quando o comerciante pedir o extrato " +
+    "do mes ou extrato mensal, por exemplo 'extrato do mes', 'extrato mensal', 'quanto foi pago e quanto " +
+    "falta esse mes'. Nao chame pra historico de UM cliente especifico (isso e purchase_history).",
+  input_schema: { type: "object", properties: {}, required: [] },
+};
+
+const LIST_DEFAULTERS_TOOL: Anthropic.Tool = {
+  name: "list_defaulters",
+  description:
+    "Lista os clientes inadimplentes (devendo ha mais dias que o prazo aceitavel), cada um ja com um link " +
+    "pronto pra cobrar pelo WhatsApp. Chame quando o comerciante pedir a lista de inadimplentes/atrasados, " +
+    "por exemplo 'quem esta inadimplente?', 'clientes inadimplentes', 'quem esta atrasado?'. Diferente de " +
+    "query_debtors: inadimplente e sobre atraso no tempo, nao so sobre dever dinheiro.",
+  input_schema: { type: "object", properties: {}, required: [] },
+};
+
 const ALL_TOOLS = [
   RECORD_DEBT_TOOL,
   REGISTER_CUSTOMER_TOOL,
@@ -155,6 +178,8 @@ const ALL_TOOLS = [
   QUERY_BALANCE_TOOL,
   QUERY_DEBTORS_TOOL,
   WEEKLY_SUMMARY_TOOL,
+  MONTHLY_STATEMENT_TOOL,
+  LIST_DEFAULTERS_TOOL,
 ];
 
 const SYSTEM_PROMPT = `
@@ -172,6 +197,8 @@ O comerciante manda mensagens curtas e informais em portugues, tipo:
 "quanto o Ze Carlos me deve?" -> saldo de um cliente
 "quem ta devendo mais de 100 reais?" ou "quem ta devendo?" -> lista de devedores
 "resumo da semana" ou "como esta o caixa" -> resumo geral
+"extrato do mes" ou "extrato mensal" -> extrato mensal do negocio (pago vs falta, por cliente)
+"quem esta inadimplente?" ou "clientes inadimplentes" -> lista de inadimplentes com cobranca pronta
 
 Sua unica tarefa e decidir qual ferramenta chamar (no maximo uma) com base na mensagem, ou nenhuma se a
 mensagem nao se encaixar claramente em nenhum desses casos ou faltar os dados necessarios.
@@ -207,6 +234,14 @@ export async function extractIntent(message: string): Promise<FiadoIntent | null
 
   if (toolUse.name === "weekly_summary") {
     return { type: "weekly_summary" };
+  }
+
+  if (toolUse.name === "monthly_statement") {
+    return { type: "monthly_statement" };
+  }
+
+  if (toolUse.name === "list_defaulters") {
+    return { type: "list_defaulters" };
   }
 
   const customerName = str(input.customer_name);
