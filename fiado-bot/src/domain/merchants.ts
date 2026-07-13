@@ -2,12 +2,17 @@ import { eq } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { merchants, type PendingAction } from "../db/schema.js";
 
-export async function getOrCreateMerchant(whatsappPhone: string) {
+export interface GetOrCreateMerchantResult {
+  merchant: typeof merchants.$inferSelect;
+  isNew: boolean;
+}
+
+export async function getOrCreateMerchant(whatsappPhone: string): Promise<GetOrCreateMerchantResult> {
   const existing = await db.query.merchants.findFirst({
     where: eq(merchants.whatsappPhone, whatsappPhone),
   });
 
-  if (existing) return existing;
+  if (existing) return { merchant: existing, isNew: false };
 
   const [created] = await db
     .insert(merchants)
@@ -15,7 +20,7 @@ export async function getOrCreateMerchant(whatsappPhone: string) {
     .onConflictDoNothing({ target: merchants.whatsappPhone })
     .returning();
 
-  if (created) return created;
+  if (created) return { merchant: created, isNew: true };
 
   // Corrida rara: outra requisicao criou entre o SELECT e o INSERT.
   const fallback = await db.query.merchants.findFirst({
@@ -23,7 +28,7 @@ export async function getOrCreateMerchant(whatsappPhone: string) {
   });
 
   if (!fallback) throw new Error(`Nao foi possivel obter/criar merchant para ${whatsappPhone}`);
-  return fallback;
+  return { merchant: fallback, isNew: false };
 }
 
 export async function listMerchants() {

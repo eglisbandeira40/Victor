@@ -34,6 +34,15 @@ const FALLBACK_MESSAGE =
 
 const ERROR_MESSAGE = "Ops, deu ruim aqui do meu lado 😕 Tenta de novo em instantes.";
 
+const WELCOME_MESSAGE =
+  "👋 Oi! Eu sou o *Fiado* 🧾\n" +
+  "Vou te ajudar a controlar o fiado dos seus clientes direto aqui no WhatsApp — sem app, sem planilha.\n\n" +
+  "Pra anotar uma dívida, é só mandar assim:\n" +
+  "_Zé Carlos, 45 reais, almoço de hoje_\n\n" +
+  "Quando alguém pagar:\n" +
+  "_Zé Carlos pagou 20 reais_\n\n" +
+  "Isso já resolve o principal! Vamos nessa 😊";
+
 function parseInstallmentCount(text: string): number | null {
   const normalized = text.trim().toLowerCase();
   if (/^a\s*vista$/.test(normalized.replace(/[àá]/g, "a"))) return 1;
@@ -169,7 +178,11 @@ export async function handleInboundMessage(message: WhatsAppInboundMessage): Pro
   const bodyText = message.type === "text" ? message.text?.body?.trim() : undefined;
 
   try {
-    const merchant = await getOrCreateMerchant(merchantPhone);
+    const { merchant, isNew } = await getOrCreateMerchant(merchantPhone);
+
+    if (isNew) {
+      await sendWhatsAppText(merchantPhone, WELCOME_MESSAGE);
+    }
 
     if (merchant.pendingAction?.type === "awaiting_installments") {
       await handlePendingInstallmentReply(merchant.id, merchantPhone, merchant.pendingAction, bodyText ?? "");
