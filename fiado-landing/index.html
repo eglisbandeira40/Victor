@@ -7,11 +7,57 @@
   <meta name="description" content="Anote dívida, dê baixa em pagamento e cobre clientes sem sair do WhatsApp. Sem app, sem planilha, sem caderno. R$29,90/mês, sem limite de clientes." />
   <link rel="stylesheet" href="style.css" />
 </head>
-<body>
+<body id="top">
+
+  <svg class="icon-sprite" aria-hidden="true" focusable="false">
+    <defs>
+      <symbol id="icon-check" viewBox="0 0 24 24">
+        <path d="M5 13l4 4L19 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-check-double" viewBox="0 0 20 14">
+        <path d="M1 8l3.2 3.2L11 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M6.5 8l3.2 3.2L16.5 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-x-circle" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/>
+        <path d="M9 9l6 6M15 9l-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </symbol>
+      <symbol id="icon-message" viewBox="0 0 24 24">
+        <path d="M21 11.5c0 4.7-4 8.5-9 8.5-1.2 0-2.4-.2-3.4-.6L3 21l1.8-4.3A8.4 8.4 0 013 11.5C3 6.8 7 3 12 3s9 3.8 9 8.5z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+        <path d="M12 8.2v4.2M9.9 10.3h4.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      </symbol>
+      <symbol id="icon-banknote" viewBox="0 0 24 24">
+        <rect x="2.5" y="6.5" width="19" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <circle cx="12" cy="12" r="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <path d="M5.5 12h.01M18.5 12h.01" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+      </symbol>
+      <symbol id="icon-bell" viewBox="0 0 24 24">
+        <path d="M18 8.5a6 6 0 10-12 0c0 6.5-2.5 8.3-2.5 8.3h17s-2.5-1.8-2.5-8.3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+        <path d="M13.7 20a1.9 1.9 0 01-3.4 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      </symbol>
+      <symbol id="icon-id-card" viewBox="0 0 24 24">
+        <rect x="2.5" y="5.5" width="19" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <circle cx="8.7" cy="11" r="1.9" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <path d="M5.8 16c.5-1.7 1.8-2.6 2.9-2.6s2.4.9 2.9 2.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M14.5 9.3h4M14.5 12.3h4M14.5 15.3h2.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      </symbol>
+      <symbol id="icon-receipt" viewBox="0 0 24 24">
+        <path d="M6.5 2.5h11v18.3l-2.1-1.3-1.9 1.3-1.9-1.3-1.9 1.3-1.9-1.3-1.3.8V2.5z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+        <path d="M9 7.3h6M9 10.5h6M9 13.7h3.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </symbol>
+      <symbol id="icon-send" viewBox="0 0 24 24">
+        <path d="M21.5 2.5L2.5 10.2l7.6 3.1 2.9 7.7L21.5 2.5z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
+        <path d="M21.5 2.5l-11 10.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      </symbol>
+    </defs>
+  </svg>
 
   <nav class="nav">
     <div class="wrap nav-inner">
-      <span class="logo">Fiado 🧾</span>
+      <a class="logo" href="#top" aria-label="Fiado">
+        <span class="logo-badge"><svg class="icon" viewBox="0 0 24 24"><use href="#icon-receipt"></use></svg></span>
+        <span class="logo-word">Fiado</span>
+      </a>
       <a class="btn btn-primary btn-sm" href="https://wa.me/5500000000000?text=Oi%2C%20quero%20testar%20o%20Fiado" data-cta="nav">
         Testar grátis
       </a>
@@ -35,9 +81,25 @@
     </div>
 
     <div class="hero-visual" aria-hidden="true">
+      <svg class="hero-character" viewBox="0 0 320 360">
+        <ellipse class="hc-blob" cx="160" cy="185" rx="150" ry="150"/>
+        <rect class="hc-counter" x="4" y="266" width="300" height="80" rx="16"/>
+        <rect class="hc-counter-top" x="4" y="266" width="300" height="14" rx="7"/>
+        <path class="hc-apron" d="M92 268 C92 196 112 154 160 154 C208 154 228 196 228 268 Z"/>
+        <path class="hc-shirt" d="M132 168 C142 152 178 152 188 168 L182 194 L138 194 Z"/>
+        <path class="hc-sleeve" d="M204 194 C222 190 234 174 231 152 L211 158 C214 174 208 186 197 194 Z"/>
+        <circle class="hc-skin" cx="223" cy="150" r="10"/>
+        <circle class="hc-skin" cx="160" cy="120" r="42"/>
+        <circle class="hc-face-dot" cx="146" cy="118" r="4"/>
+        <circle class="hc-face-dot" cx="176" cy="118" r="4"/>
+        <path class="hc-face" d="M144 134 Q160 146 178 134" fill="none" stroke-width="4" stroke-linecap="round"/>
+        <rect class="hc-badge-bg" x="222" y="64" width="66" height="42" rx="13"/>
+        <path class="hc-badge-tail" d="M232 104 L220 120 226 100 Z"/>
+        <path class="hc-badge-check" d="M238 86 l8 8 15 -17" fill="none" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
       <div class="phone-mock">
         <div class="phone-head">
-          <div class="phone-avatar">🧾</div>
+          <div class="phone-avatar"><svg class="icon" viewBox="0 0 24 24"><use href="#icon-receipt"></use></svg></div>
           <div>
             <div class="phone-name">Fiado</div>
             <div class="phone-status">online</div>
@@ -46,18 +108,18 @@
         <div class="phone-body">
           <div class="bubble sent">
             Zé Carlos, 45 reais, o almoço de hoje
-            <span class="meta">09:14 ✓✓</span>
+            <span class="meta">09:14 <svg class="icon-inline" viewBox="0 0 20 14"><use href="#icon-check-double"></use></svg></span>
           </div>
           <div class="bubble received">
-            Anotado ✅ Zé Carlos deve <span class="amt">R$ 45,00</span> (almoço de hoje). No total Zé te deve <span class="amt">R$ 45,00</span>
+            Anotado <svg class="icon-inline icon-inline-brand" viewBox="0 0 24 24"><use href="#icon-check"></use></svg> Zé Carlos deve <span class="amt">R$ 45,00</span> (almoço de hoje). No total Zé te deve <span class="amt">R$ 45,00</span>
             <span class="meta">09:14</span>
           </div>
           <div class="bubble sent">
             Zé Carlos pagou 20 reais
-            <span class="meta">14:52 ✓✓</span>
+            <span class="meta">14:52 <svg class="icon-inline" viewBox="0 0 20 14"><use href="#icon-check-double"></use></svg></span>
           </div>
           <div class="bubble received">
-            Recebido ✅ Zé Carlos pagou <span class="amt">R$ 20,00</span>. Agora Zé te deve <span class="amt">R$ 25,00</span>
+            Recebido <svg class="icon-inline icon-inline-brand" viewBox="0 0 24 24"><use href="#icon-check"></use></svg> Zé Carlos pagou <span class="amt">R$ 20,00</span>. Agora Zé te deve <span class="amt">R$ 25,00</span>
             <span class="meta">14:52</span>
           </div>
         </div>
@@ -73,19 +135,19 @@
 
     <div class="pain-list">
       <div class="pain-item">
-        <span class="mark">×</span>
+        <span class="mark"><svg class="icon" viewBox="0 0 24 24"><use href="#icon-x-circle"></use></svg></span>
         <p>O caderninho some, molha ou fica ilegível — e ninguém, nem você, entende mais a letra.</p>
       </div>
       <div class="pain-item">
-        <span class="mark">×</span>
+        <span class="mark"><svg class="icon" viewBox="0 0 24 24"><use href="#icon-x-circle"></use></svg></span>
         <p>Perde a conta de quem deve, quanto deve e há quanto tempo está devendo.</p>
       </div>
       <div class="pain-item">
-        <span class="mark">×</span>
+        <span class="mark"><svg class="icon" viewBox="0 0 24 24"><use href="#icon-x-circle"></use></svg></span>
         <p>Fica com vergonha de cobrar — ou simplesmente esquece, e o dinheiro nunca mais volta.</p>
       </div>
       <div class="pain-item">
-        <span class="mark">×</span>
+        <span class="mark"><svg class="icon" viewBox="0 0 24 24"><use href="#icon-x-circle"></use></svg></span>
         <p>Aplicativo de controle financeiro é complicado demais pra quem só quer anotar uma venda.</p>
       </div>
     </div>
@@ -134,32 +196,32 @@
 
     <div class="features">
       <div class="feature">
-        <div class="emoji">📝</div>
+        <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><use href="#icon-message"></use></svg></div>
         <h3>Cadastro por mensagem</h3>
         <p>Cliente novo, dívida nova — o Fiado cria e soma tudo sozinho, sem cadastro separado.</p>
       </div>
       <div class="feature">
-        <div class="emoji">💸</div>
+        <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><use href="#icon-banknote"></use></svg></div>
         <h3>Baixa de pagamento</h3>
         <p>"Zé Carlos pagou 20 reais" e pronto — o saldo atualiza na hora.</p>
       </div>
       <div class="feature">
-        <div class="emoji">🔔</div>
+        <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><use href="#icon-bell"></use></svg></div>
         <h3>Lembrete de vencimento</h3>
         <p>Marcou uma data pra dívida vencer? O Fiado avisa você no dia certo, automaticamente.</p>
       </div>
       <div class="feature">
-        <div class="emoji">📇</div>
+        <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><use href="#icon-id-card"></use></svg></div>
         <h3>Telefone por contato</h3>
         <p>Compartilha o contato do cliente no chat e o Fiado salva o telefone sozinho, com confirmação.</p>
       </div>
       <div class="feature">
-        <div class="emoji">🧾</div>
+        <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><use href="#icon-receipt"></use></svg></div>
         <h3>Extrato e histórico</h3>
         <p>Extrato mensal, histórico por cliente, saldo geral — tudo perguntando em português normal.</p>
       </div>
       <div class="feature">
-        <div class="emoji">📲</div>
+        <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><use href="#icon-send"></use></svg></div>
         <h3>Cobrança pronta</h3>
         <p>Um toque abre o WhatsApp do cliente com a mensagem de cobrança já escrita. Você revisa e envia.</p>
       </div>
@@ -178,10 +240,10 @@
         <div class="price-value">R$29,90 <span>/mês</span></div>
         <p class="price-sub">Sem limite de clientes. Sem contrato.</p>
         <ul class="price-list">
-          <li>Clientes ilimitados</li>
-          <li>Todas as funções, sem plano superior</li>
-          <li>7 dias grátis pra testar</li>
-          <li>Cancela quando quiser, sem multa</li>
+          <li><svg class="icon" viewBox="0 0 24 24"><use href="#icon-check"></use></svg>Clientes ilimitados</li>
+          <li><svg class="icon" viewBox="0 0 24 24"><use href="#icon-check"></use></svg>Todas as funções, sem plano superior</li>
+          <li><svg class="icon" viewBox="0 0 24 24"><use href="#icon-check"></use></svg>7 dias grátis pra testar</li>
+          <li><svg class="icon" viewBox="0 0 24 24"><use href="#icon-check"></use></svg>Cancela quando quiser, sem multa</li>
         </ul>
         <a class="btn btn-primary" href="https://wa.me/5500000000000?text=Oi%2C%20quero%20testar%20o%20Fiado" data-cta="pricing">
           Começar teste grátis
@@ -222,6 +284,16 @@
 
   <section class="wrap">
     <div class="final-cta">
+      <svg class="cta-character" viewBox="0 0 140 140" aria-hidden="true">
+        <circle class="cc-blob" cx="70" cy="70" r="66"/>
+        <path class="cc-shirt" d="M28 118 C28 90 44 74 70 74 C96 74 112 90 112 118 Z"/>
+        <circle class="cc-skin" cx="70" cy="56" r="30"/>
+        <circle class="cc-face-dot" cx="60" cy="54" r="3"/>
+        <circle class="cc-face-dot" cx="80" cy="54" r="3"/>
+        <path class="cc-face" d="M58 66 Q70 76 82 66" fill="none" stroke-width="3.4" stroke-linecap="round"/>
+        <circle class="cc-badge-bg" cx="106" cy="98" r="20"/>
+        <path class="cc-badge-check" d="M97 98 l6 7 12 -14" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
       <h2>Pronto pra parar de anotar fiado no caderninho?</h2>
       <p>7 dias grátis pra testar com seus clientes de verdade. Sem cartão, sem compromisso.</p>
       <a class="btn btn-primary" href="https://wa.me/5500000000000?text=Oi%2C%20quero%20testar%20o%20Fiado" data-cta="final">
@@ -231,8 +303,11 @@
   </section>
 
   <footer class="wrap">
-    <span>Fiado 🧾 — feito pra quem vende fiado de verdade</span>
-    <span>© 2026</span>
+    <a class="logo" href="#top" aria-label="Fiado">
+      <span class="logo-badge"><svg class="icon" viewBox="0 0 24 24"><use href="#icon-receipt"></use></svg></span>
+      <span class="logo-word">Fiado</span>
+    </a>
+    <span>© 2026 — feito pra quem vende fiado de verdade</span>
   </footer>
 
   <script src="script.js"></script>
