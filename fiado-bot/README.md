@@ -36,6 +36,10 @@ Implementado até agora:
       cobrança pronta do alerta semanal, mas disparada na hora, quando o comerciante quiser)
 - [x] Cobrança de um cliente específico — "cobrar Zé Carlos" gera o link `wa.me` de cobrança pronto só
       pra esse cliente, sem precisar esperar ele entrar na lista de inadimplentes
+- [x] Data de vencimento por dívida — "Zé Carlos, 45 reais, almoço, vence dia 20" (ou "vence em 10
+      dias", "vence sexta") salva o vencimento junto com a dívida
+- [x] Lembrete diário de vencimento (job agendado, 8h) — no dia em que uma dívida vence, o Fiado avisa
+      o comerciante com o valor e o link `wa.me` de cobrança pronto, uma única vez por dívida
 
 Ainda não implementado (próximas fases, schema já preparado pra isso):
 - [ ] Export CSV / endpoint de visualização de dados
@@ -95,7 +99,8 @@ Ver [`src/db/schema.ts`](./src/db/schema.ts) (Drizzle) e as migrations em [`src/
 - `customers` — cliente do comerciante: `name`, `phone`, `installments`, `balance_reset_at`
   (corte de "conta arquivada" — dívidas/pagamentos antes disso não contam mais pro saldo), `merchant_id`;
   único por `(merchant_id, lower(name))`
-- `debts` — dívida: `customer_id`, `merchant_id`, `amount_cents`, `description`, `created_at`
+- `debts` — dívida: `customer_id`, `merchant_id`, `amount_cents`, `description`, `due_date` (opcional),
+  `due_reminder_sent_at` (controla o lembrete diário pra não repetir), `created_at`
 - `payments` — pagamento: `customer_id`, `merchant_id`, `amount_cents`, `note`, `created_at`
 - `processed_messages` — dedup de retries do webhook (`wa_message_id`)
 
@@ -106,7 +111,8 @@ Ver [`src/db/schema.ts`](./src/db/schema.ts) (Drizzle) e as migrations em [`src/
 | GET    | `/health`                     | Healthcheck                                                         |
 | GET    | `/webhook`                    | Verificação do webhook do Meta (`hub.challenge`)                    |
 | POST   | `/webhook`                    | Recebe mensagens do WhatsApp — o coração do sistema                 |
-| POST   | `/internal/run-weekly-check`  | Dispara o job semanal de cobrança na hora (`?token=WHATSAPP_VERIFY_TOKEN`), pra teste/depuração |
+| POST   | `/internal/run-weekly-check`  | Dispara os jobs semanais (resumo + cobrança) na hora (`?token=WHATSAPP_VERIFY_TOKEN`), pra teste/depuração |
+| POST   | `/internal/run-due-check`     | Dispara o lembrete diário de vencimento na hora (`?token=WHATSAPP_VERIFY_TOKEN`), pra teste/depuração |
 
 ## Rodando localmente
 
@@ -131,16 +137,17 @@ Ver [`.env.example`](./.env.example). Resumo:
 
 ### Banco de dados
 
-Rode as migrations de [`src/db/migrations/`](./src/db/migrations/), em ordem (`0001_init.sql`,
-`0002_account_lifecycle.sql`, `0003_remove_address.sql`, ...), no console/SQL editor do seu Postgres.
-Assim que houver uma `DATABASE_URL` acessível localmente, `npm run db:generate` / `npm run db:migrate`
-(drizzle-kit) assumem esse papel a partir da próxima migration.
+Rode as migrations de [`src/db/migrations/`](./src/db/migrations/), em ordem (`0001_init.sql` até
+`0005_debt_due_date.sql`, e o que vier depois), no console/SQL editor do seu Postgres. Assim que houver
+uma `DATABASE_URL` acessível localmente, `npm run db:generate` / `npm run db:migrate` (drizzle-kit)
+assumem esse papel a partir da próxima migration.
 
 ### Comandos que o comerciante pode mandar hoje
 
 | Mensagem (exemplo)                                     | O que faz |
 |----------------------------------------------------------|-----------|
 | `Zé Carlos, 45 reais, o almoço de hoje`                   | Registra dívida, soma ao saldo do cliente |
+| `Zé Carlos, 45 reais, almoço, vence dia 20`               | Igual acima, mas guarda a data de vencimento dessa dívida |
 | `cadastrar Zé Carlos, telefone 11987654321`               | Cadastra/atualiza o telefone |
 | `telefone do Zé Carlos, 11987654321`                      | Mesma coisa, forma curta |
 | *(compartilhar um contato do WhatsApp)*                   | Fiado lê nome+telefone do cartão e pergunta antes de salvar |
@@ -182,19 +189,27 @@ tenta casar com um cliente já cadastrado pelo nome e **sempre pergunta antes de
 Essa confirmação existe de propósito: o comerciante pode ter mais de um contato com nome parecido na
 agenda pessoal, e a confirmação evita salvar o telefone errado num cliente do Fiado.
 
-## Jobs semanais (toda segunda, 9h)
+## Jobs agendados
 
-Toda segunda às 9h (`America/Sao_Paulo`), dois jobs rodam em sequência pra cada merchant (ver
-[`src/jobs/scheduler.ts`](./src/jobs/scheduler.ts)):
+Ver [`src/jobs/scheduler.ts`](./src/jobs/scheduler.ts). Dois horários, sempre em `America/Sao_Paulo`:
+
+**Todo dia às 8h** — [`dueDateReminderJob.ts`](./src/jobs/dueDateReminderJob.ts): varre as dívidas cujo
+`due_date` é hoje e ainda não tiveram lembrete enviado, e avisa o comerciante com o link `wa.me` de
+cobrança pronto (uma única vez por dívida, controlado por `due_reminder_sent_at`). Só vale pra dívidas
+que tiveram data de vencimento informada na hora do cadastro — sem isso, não tem o que lembrar.
+Teste manual: `POST /internal/run-due-check?token=SEU_WHATSAPP_VERIFY_TOKEN`.
+
+**Toda segunda às 9h** — dois jobs em sequência pra cada merchant:
 
 1. **Resumo geral** ([`weeklySummaryJob.ts`](./src/jobs/weeklySummaryJob.ts)) — manda sempre, pra todo
    mundo, o mesmo resumo que "resumo da semana" mostra sob demanda (total em aberto, clientes devendo,
    recebido nos últimos 7 dias)
 2. **Alerta de cobrança** ([`weeklyCollectionReminder.ts`](./src/jobs/weeklyCollectionReminder.ts)) — só
-   manda se houver cliente com dívida em aberto há mais de `OVERDUE_THRESHOLD_DAYS` (7 dias)
+   manda se houver cliente com dívida em aberto há mais de `OVERDUE_THRESHOLD_DAYS` (7 dias), independente
+   de ter data de vencimento marcada ou não
 
-Pra testar sem esperar segunda-feira: `POST /internal/run-weekly-check?token=SEU_WHATSAPP_VERIFY_TOKEN`
-dispara os dois jobs na hora.
+Teste manual: `POST /internal/run-weekly-check?token=SEU_WHATSAPP_VERIFY_TOKEN` dispara os dois jobs
+semanais na hora.
 
 ### Alerta de cobrança
 

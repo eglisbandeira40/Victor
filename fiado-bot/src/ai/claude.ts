@@ -5,7 +5,7 @@ import { logger } from "../utils/logger.js";
 export const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
 export type FiadoIntent =
-  | { type: "record_debt"; customerName: string; amount: number; description?: string }
+  | { type: "record_debt"; customerName: string; amount: number; description?: string; dueDate?: string }
   | { type: "register_customer"; customerName: string; phone: string }
   | { type: "register_payment"; customerName: string; amount: number }
   | { type: "close_account"; customerName: string }
@@ -30,6 +30,13 @@ const RECORD_DEBT_TOOL: Anthropic.Tool = {
       customer_name: { type: "string", description: "Nome do cliente que ficou devendo" },
       amount: { type: "number", description: "Valor da divida em reais (ex: 45.5 para R$ 45,50)" },
       description: { type: "string", description: "O que foi comprado/consumido, se mencionado" },
+      due_date: {
+        type: "string",
+        description:
+          "Data de vencimento da divida, SO SE mencionada na mensagem (ex: 'vence dia 20', 'pagar em 10 " +
+          "dias', 'vence sexta'). Formato obrigatorio YYYY-MM-DD. Calcule a partir da data de hoje informada " +
+          "no system prompt se for uma referencia relativa. Nao invente uma data se nao for mencionada.",
+      },
     },
     required: ["customer_name", "amount"],
   },
@@ -200,12 +207,20 @@ const ALL_TOOLS = [
   COLLECT_CUSTOMER_TOOL,
 ];
 
-const SYSTEM_PROMPT = `
+function buildSystemPrompt(): string {
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const weekday = new Date().toLocaleDateString("pt-BR", { weekday: "long" });
+
+  return `
 Voce e um extrator de dados para o Fiado, um bot de WhatsApp que ajuda donos de pequeno comercio
 (mercadinho, padaria, bar) a controlar fiado dos clientes.
 
+Hoje e ${todayIso} (${weekday}). Use essa data como referencia pra calcular datas relativas mencionadas
+nas mensagens (ex: "vence em 10 dias", "vence sexta").
+
 O comerciante manda mensagens curtas e informais em portugues, tipo:
 "Ze Carlos, 45 reais, o almoco de hoje" -> nova divida
+"Ze Carlos, 45 reais, almoco, vence dia 20" -> nova divida com data de vencimento
 "cadastrar Ze Carlos, telefone 11987654321" -> cadastro/atualizacao de cliente
 "telefone do Ze Carlos, 11987654321" -> cadastro/atualizacao de cliente
 "Ze Carlos pagou 20 reais" -> pagamento
@@ -222,6 +237,7 @@ O comerciante manda mensagens curtas e informais em portugues, tipo:
 Sua unica tarefa e decidir qual ferramenta chamar (no maximo uma) com base na mensagem, ou nenhuma se a
 mensagem nao se encaixar claramente em nenhum desses casos ou faltar os dados necessarios.
 `.trim();
+}
 
 function isToolUseBlock(block: Anthropic.ContentBlock): block is Anthropic.ToolUseBlock {
   return block.type === "tool_use";
@@ -231,11 +247,18 @@ function str(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function isoDate(value: unknown): string | undefined {
+  const s = str(value);
+  return s && ISO_DATE_RE.test(s) ? s : undefined;
+}
+
 export async function extractIntent(message: string): Promise<FiadoIntent | null> {
   const response = await anthropic.messages.create({
     model: env.ANTHROPIC_MODEL,
     max_tokens: 512,
-    system: SYSTEM_PROMPT,
+    system: buildSystemPrompt(),
     tools: ALL_TOOLS,
     tool_choice: { type: "auto", disable_parallel_tool_use: true },
     messages: [{ role: "user", content: message }],
@@ -273,7 +296,13 @@ export async function extractIntent(message: string): Promise<FiadoIntent | null
     case "record_debt": {
       const amount = typeof input.amount === "number" ? input.amount : undefined;
       if (!amount || amount <= 0) return null;
-      return { type: "record_debt", customerName, amount, description: str(input.description) };
+      return {
+        type: "record_debt",
+        customerName,
+        amount,
+        description: str(input.description),
+        dueDate: isoDate(input.due_date),
+      };
     }
     case "register_customer": {
       const phone = str(input.phone);

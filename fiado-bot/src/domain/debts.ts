@@ -7,6 +7,7 @@ export async function createDebt(params: {
   merchantId: string;
   amountCents: number;
   description?: string;
+  dueDate?: string;
 }) {
   const [created] = await db
     .insert(debts)
@@ -15,6 +16,7 @@ export async function createDebt(params: {
       merchantId: params.merchantId,
       amountCents: params.amountCents,
       description: params.description,
+      dueDate: params.dueDate,
     })
     .returning();
 

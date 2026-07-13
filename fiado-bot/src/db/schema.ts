@@ -4,6 +4,7 @@ import {
   text,
   integer,
   timestamp,
+  date,
   jsonb,
   uniqueIndex,
   index,
@@ -57,10 +58,13 @@ export const debts = pgTable("debts", {
   merchantId: uuid("merchant_id").notNull().references(() => merchants.id, { onDelete: "cascade" }),
   amountCents: integer("amount_cents").notNull(),
   description: text("description"),
+  dueDate: date("due_date"),
+  dueReminderSentAt: timestamp("due_reminder_sent_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   index("debts_customer_id_idx").on(table.customerId),
   index("debts_merchant_id_idx").on(table.merchantId),
+  index("debts_due_date_idx").on(table.dueDate),
 ]);
 
 export const payments = pgTable("payments", {

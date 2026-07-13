@@ -208,15 +208,19 @@ export async function handleInboundMessage(message: WhatsAppInboundMessage): Pro
           merchantId: merchant.id,
           amountCents,
           description: intent.description,
+          dueDate: intent.dueDate,
         });
 
         const balanceCents = await getCustomerBalanceCents(customer.id, customer.balanceResetAt);
         const firstName = customer.name.split(" ")[0];
         const descriptionPart = intent.description ? ` (${intent.description})` : "";
+        const dueDatePart = intent.dueDate
+          ? `, vence dia ${new Date(`${intent.dueDate}T12:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}`
+          : "";
 
         await sendWhatsAppText(
           merchantPhone,
-          `Anotado ✅ ${customer.name} deve ${formatBRL(amountCents)}${descriptionPart}. ` +
+          `Anotado ✅ ${customer.name} deve ${formatBRL(amountCents)}${descriptionPart}${dueDatePart}. ` +
             `No total ${firstName} te deve ${formatBRL(balanceCents)}`
         );
         break;
