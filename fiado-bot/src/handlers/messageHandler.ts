@@ -20,10 +20,10 @@ import { createPayment } from "../domain/payments.js";
 import { getCustomerHistory } from "../domain/history.js";
 import { getMerchantSummary, formatSummaryMessage } from "../domain/summary.js";
 import { getMonthlyStatement, formatMonthlyStatement } from "../domain/monthlyStatement.js";
-import { OVERDUE_THRESHOLD_DAYS, buildOverdueList } from "../jobs/weeklyCollectionReminder.js";
+import { OVERDUE_THRESHOLD_DAYS, buildOverdueList, buildCollectionMessage } from "../jobs/weeklyCollectionReminder.js";
 import { sendWhatsAppText } from "../whatsapp/client.js";
 import { formatBRL, reaisToCents } from "../utils/currency.js";
-import { normalizePhoneBR, formatPhoneDisplay } from "../utils/phone.js";
+import { normalizePhoneBR, formatPhoneDisplay, buildWhatsAppLink } from "../utils/phone.js";
 import { logger } from "../utils/logger.js";
 import type { WhatsAppInboundMessage, WhatsAppSharedContact } from "../whatsapp/types.js";
 
@@ -385,6 +385,41 @@ export async function handleInboundMessage(message: WhatsAppInboundMessage): Pro
         }
 
         await sendWhatsAppText(merchantPhone, buildOverdueList(merchant.businessName, overdue));
+        break;
+      }
+
+      case "collect_customer": {
+        const customer = await findCustomerByName(merchant.id, intent.customerName);
+
+        if (!customer) {
+          await sendWhatsAppText(merchantPhone, `Não tenho nenhum cliente chamado ${intent.customerName} cadastrado.`);
+          break;
+        }
+
+        const balanceCents = await getCustomerBalanceCents(customer.id, customer.balanceResetAt);
+
+        if (balanceCents <= 0) {
+          await sendWhatsAppText(merchantPhone, `${customer.name} não deve nada agora, nada pra cobrar 👍`);
+          break;
+        }
+
+        if (!customer.phone) {
+          await sendWhatsAppText(
+            merchantPhone,
+            `Não tenho o telefone de ${customer.name} salvo. Manda assim: telefone do ${customer.name}, DDD e número`
+          );
+          break;
+        }
+
+        const link = buildWhatsAppLink(
+          customer.phone,
+          buildCollectionMessage(merchant.businessName, { name: customer.name, balanceCents })
+        );
+
+        await sendWhatsAppText(
+          merchantPhone,
+          `💰 *Cobrança de ${customer.name}*\n\nSaldo: ${formatBRL(balanceCents)}\n👉 ${link}`
+        );
         break;
       }
     }

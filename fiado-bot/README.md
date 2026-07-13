@@ -34,6 +34,8 @@ Implementado até agora:
       totais no final)
 - [x] Lista de inadimplentes sob demanda — "quem está inadimplente?" (mesma lista com link `wa.me` de
       cobrança pronta do alerta semanal, mas disparada na hora, quando o comerciante quiser)
+- [x] Cobrança de um cliente específico — "cobrar Zé Carlos" gera o link `wa.me` de cobrança pronto só
+      pra esse cliente, sem precisar esperar ele entrar na lista de inadimplentes
 
 Ainda não implementado (próximas fases, schema já preparado pra isso):
 - [ ] Export CSV / endpoint de visualização de dados
@@ -151,6 +153,7 @@ Assim que houver uma `DATABASE_URL` acessível localmente, `npm run db:generate`
 | `resumo da semana` / `como está o caixa`                   | Total em aberto, clientes devendo, recebido nos últimos 7 dias |
 | `extrato do mês` / `extrato mensal`                        | Quanto cada cliente pagou esse mês e quanto ainda falta, com totais |
 | `quem está inadimplente?` / `clientes inadimplentes`       | Lista de inadimplentes (7+ dias) com link de cobrança pronto — igual ao alerta semanal, mas sob demanda |
+| `cobrar Zé Carlos`                                         | Link de cobrança pronto só pra esse cliente (não precisa esperar entrar na lista de inadimplentes) |
 
 ## Fluxo implementado (cadastro de dívida)
 

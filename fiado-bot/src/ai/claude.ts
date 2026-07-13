@@ -15,7 +15,8 @@ export type FiadoIntent =
   | { type: "query_debtors"; minAmount?: number }
   | { type: "weekly_summary" }
   | { type: "monthly_statement" }
-  | { type: "list_defaulters" };
+  | { type: "list_defaulters" }
+  | { type: "collect_customer"; customerName: string };
 
 const RECORD_DEBT_TOOL: Anthropic.Tool = {
   name: "record_debt",
@@ -168,6 +169,22 @@ const LIST_DEFAULTERS_TOOL: Anthropic.Tool = {
   input_schema: { type: "object", properties: {}, required: [] },
 };
 
+const COLLECT_CUSTOMER_TOOL: Anthropic.Tool = {
+  name: "collect_customer",
+  description:
+    "Prepara uma mensagem de cobranca pronta (com link do WhatsApp) pra UM cliente especifico, mencionado " +
+    "pelo nome. Chame quando o comerciante pedir explicitamente pra cobrar alguem, por exemplo 'cobrar Ze " +
+    "Carlos', 'cobra a Suellen Bandeira', 'manda cobranca pro Ze'. Diferente de register_payment (que e " +
+    "quando o cliente JA pagou) e de query_balance (que so pergunta o saldo, sem pedir cobranca).",
+  input_schema: {
+    type: "object",
+    properties: {
+      customer_name: { type: "string", description: "Nome do cliente a cobrar" },
+    },
+    required: ["customer_name"],
+  },
+};
+
 const ALL_TOOLS = [
   RECORD_DEBT_TOOL,
   REGISTER_CUSTOMER_TOOL,
@@ -180,6 +197,7 @@ const ALL_TOOLS = [
   WEEKLY_SUMMARY_TOOL,
   MONTHLY_STATEMENT_TOOL,
   LIST_DEFAULTERS_TOOL,
+  COLLECT_CUSTOMER_TOOL,
 ];
 
 const SYSTEM_PROMPT = `
@@ -199,6 +217,7 @@ O comerciante manda mensagens curtas e informais em portugues, tipo:
 "resumo da semana" ou "como esta o caixa" -> resumo geral
 "extrato do mes" ou "extrato mensal" -> extrato mensal do negocio (pago vs falta, por cliente)
 "quem esta inadimplente?" ou "clientes inadimplentes" -> lista de inadimplentes com cobranca pronta
+"cobrar Ze Carlos" ou "cobra a Suellen Bandeira" -> cobranca pronta de UM cliente especifico
 
 Sua unica tarefa e decidir qual ferramenta chamar (no maximo uma) com base na mensagem, ou nenhuma se a
 mensagem nao se encaixar claramente em nenhum desses casos ou faltar os dados necessarios.
@@ -274,6 +293,8 @@ export async function extractIntent(message: string): Promise<FiadoIntent | null
       return { type: "purchase_history", customerName };
     case "query_balance":
       return { type: "query_balance", customerName };
+    case "collect_customer":
+      return { type: "collect_customer", customerName };
     default:
       return null;
   }

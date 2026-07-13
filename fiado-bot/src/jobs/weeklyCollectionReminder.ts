@@ -7,7 +7,10 @@ import { logger } from "../utils/logger.js";
 
 export const OVERDUE_THRESHOLD_DAYS = 7;
 
-function buildCollectionMessage(businessName: string | null, customer: OverdueCustomer): string {
+export function buildCollectionMessage(
+  businessName: string | null,
+  customer: { name: string; balanceCents: number }
+): string {
   const firstName = customer.name.split(" ")[0];
   const biz = businessName ? `da ${businessName}` : "do comércio";
   return (
