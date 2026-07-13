@@ -211,6 +211,51 @@ Teste manual: `POST /internal/run-due-check?token=SEU_WHATSAPP_VERIFY_TOKEN`.
 Teste manual: `POST /internal/run-weekly-check?token=SEU_WHATSAPP_VERIFY_TOKEN` dispara os dois jobs
 semanais na hora.
 
+## Mensagens proativas (Message Templates)
+
+Os 3 jobs acima mandam mensagem **iniciada pela empresa** (o comerciante não escreveu nada antes). O
+WhatsApp só permite isso com texto livre se o comerciante mandou alguma mensagem pro Fiado nas últimas
+24h — fora dessa janela, a mensagem é **rejeitada** a menos que seja um **Message Template aprovado**
+pela Meta.
+
+Pra não quebrar nada, o código tenta usar o template configurado e, se a variável de ambiente
+correspondente estiver vazia, cai pro texto livre (funciona em teste, mas vai falhar em produção fora
+da janela de 24h). Ver [`sendProactiveMessage`](./src/whatsapp/client.ts).
+
+### Como criar os templates na Meta
+
+Business Manager → **WhatsApp Manager → Message Templates → Create Template**. Categoria **Utility**
+(são avisos de conta/serviço, não marketing) e idioma **Portuguese (BR)**. Depois de aprovado (geralmente
+minutos a poucas horas), coloca o nome exato do template nas variáveis de ambiente correspondentes.
+
+**`fiado_weekly_summary`** → `WHATSAPP_TEMPLATE_WEEKLY_SUMMARY`
+```
+📊 Resumo do Fiado
+
+Total em aberto: {{1}}
+Clientes devendo: {{2}}
+Recebido essa semana: {{3}}
+```
+
+**`fiado_collection_alert`** → `WHATSAPP_TEMPLATE_COLLECTION_ALERT`
+```
+📋 Clientes inadimplentes
+
+{{1}}
+
+Total parado: {{2}}
+```
+
+**`fiado_due_reminder`** → `WHATSAPP_TEMPLATE_DUE_REMINDER`
+```
+🔔 A dívida de {{1}} vence hoje: {{2}}
+{{3}}
+```
+
+Nos exemplos de teste que a Meta pede na hora de criar o template, pode usar valores fictícios (ex:
+"R$ 150,00", "3", "R$ 45,00") — o conteúdo real varia a cada envio, isso é normal e esperado pra
+template com variáveis.
+
 ### Alerta de cobrança
 
 Calcula quais clientes têm saldo em aberto com a dívida mais antiga passando do prazo. Se houver algum,

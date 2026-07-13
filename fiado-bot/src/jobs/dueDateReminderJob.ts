@@ -2,24 +2,28 @@ import { listMerchants } from "../domain/merchants.js";
 import { getDebtsDueTodayForMerchant, markDueReminderSent, type DueTodayDebt } from "../domain/dueDates.js";
 import { getCustomerBalanceCents } from "../domain/debts.js";
 import { buildCollectionMessage } from "./weeklyCollectionReminder.js";
-import { sendWhatsAppText } from "../whatsapp/client.js";
+import { sendProactiveMessage } from "../whatsapp/client.js";
 import { formatBRL } from "../utils/currency.js";
 import { buildWhatsAppLink } from "../utils/phone.js";
+import { env } from "../config/env.js";
 import { logger } from "../utils/logger.js";
+
+function buildDueTodayLine(debt: DueTodayDebt, businessName: string | null): string {
+  if (!debt.customerPhone) {
+    return `❓ Sem telefone salvo. Manda assim: telefone do ${debt.customerName}, DDD e número`;
+  }
+
+  return buildWhatsAppLink(
+    debt.customerPhone,
+    buildCollectionMessage(businessName, { name: debt.customerName, balanceCents: debt.amountCents })
+  );
+}
 
 function buildDueTodayMessage(businessName: string | null, debt: DueTodayDebt): string {
   const descriptionPart = debt.description ? ` (${debt.description})` : "";
   const header = `🔔 *A dívida de ${debt.customerName} vence hoje*\n\n${formatBRL(debt.amountCents)}${descriptionPart}`;
-
-  if (!debt.customerPhone) {
-    return `${header}\n\n❓ Sem telefone salvo. Manda assim: telefone do ${debt.customerName}, DDD e número`;
-  }
-
-  const link = buildWhatsAppLink(
-    debt.customerPhone,
-    buildCollectionMessage(businessName, { name: debt.customerName, balanceCents: debt.amountCents })
-  );
-  return `${header}\n👉 ${link}`;
+  const line = buildDueTodayLine(debt, businessName);
+  return debt.customerPhone ? `${header}\n👉 ${line}` : `${header}\n\n${line}`;
 }
 
 /** Roda todo dia: avisa o comerciante sobre dividas que vencem hoje, uma vez cada. */
@@ -39,7 +43,18 @@ export async function runDueDateReminders(): Promise<void> {
           continue;
         }
 
-        await sendWhatsAppText(merchant.whatsappPhone, buildDueTodayMessage(merchant.businessName, debt));
+        const descriptionPart = debt.description ? ` (${debt.description})` : "";
+
+        await sendProactiveMessage(merchant.whatsappPhone, {
+          templateName: env.WHATSAPP_TEMPLATE_DUE_REMINDER,
+          templateParams: [
+            debt.customerName,
+            `${formatBRL(debt.amountCents)}${descriptionPart}`,
+            buildDueTodayLine(debt, merchant.businessName),
+          ],
+          fallbackText: buildDueTodayMessage(merchant.businessName, debt),
+        });
+
         await markDueReminderSent(debt.debtId);
       }
     } catch (err) {

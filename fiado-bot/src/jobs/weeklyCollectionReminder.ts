@@ -1,8 +1,9 @@
 import { listMerchants } from "../domain/merchants.js";
 import { getOverdueCustomersForMerchant, type OverdueCustomer } from "../domain/debts.js";
-import { sendWhatsAppText } from "../whatsapp/client.js";
+import { sendProactiveMessage } from "../whatsapp/client.js";
 import { formatBRL } from "../utils/currency.js";
 import { buildWhatsAppLink } from "../utils/phone.js";
+import { env } from "../config/env.js";
 import { logger } from "../utils/logger.js";
 
 export const OVERDUE_THRESHOLD_DAYS = 7;
@@ -20,22 +21,22 @@ export function buildCollectionMessage(
   );
 }
 
-/** Lista de inadimplentes (7+ dias sem pagamento), cada um ja com link wa.me de cobranca pronto. */
-export function buildOverdueList(businessName: string | null, overdue: OverdueCustomer[]): string {
-  const lines = overdue.map((customer, i) => {
+function buildOverdueLines(businessName: string | null, overdue: OverdueCustomer[]): string[] {
+  return overdue.map((customer, i) => {
     const header = `${i + 1}) ${customer.name} — ${formatBRL(customer.balanceCents)} (${customer.daysOverdue} dias)`;
 
     if (!customer.phone) {
-      return (
-        `${header}\n` +
-        `❓ Sem telefone salvo. Manda assim: telefone do ${customer.name}, DDD e número`
-      );
+      return `${header}\n❓ Sem telefone salvo. Manda assim: telefone do ${customer.name}, DDD e número`;
     }
 
     const link = buildWhatsAppLink(customer.phone, buildCollectionMessage(businessName, customer));
     return `${header}\n👉 ${link}`;
   });
+}
 
+/** Lista de inadimplentes (7+ dias sem pagamento), cada um ja com link wa.me de cobranca pronto. */
+export function buildOverdueList(businessName: string | null, overdue: OverdueCustomer[]): string {
+  const lines = buildOverdueLines(businessName, overdue);
   const totalCents = overdue.reduce((sum, c) => sum + c.balanceCents, 0);
 
   return (
@@ -54,8 +55,14 @@ export async function runWeeklyCollectionCheck(): Promise<void> {
       const overdue = await getOverdueCustomersForMerchant(merchant.id, OVERDUE_THRESHOLD_DAYS);
       if (overdue.length === 0) continue;
 
-      const message = buildOverdueList(merchant.businessName, overdue);
-      await sendWhatsAppText(merchant.whatsappPhone, message);
+      const lines = buildOverdueLines(merchant.businessName, overdue);
+      const totalCents = overdue.reduce((sum, c) => sum + c.balanceCents, 0);
+
+      await sendProactiveMessage(merchant.whatsappPhone, {
+        templateName: env.WHATSAPP_TEMPLATE_COLLECTION_ALERT,
+        templateParams: [lines.join("\n\n"), formatBRL(totalCents)],
+        fallbackText: buildOverdueList(merchant.businessName, overdue),
+      });
     } catch (err) {
       logger.error("Erro ao processar cobranca semanal de um merchant", {
         merchantId: merchant.id,
