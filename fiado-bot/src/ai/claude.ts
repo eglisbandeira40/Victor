@@ -9,7 +9,8 @@ export type FiadoIntent =
   | { type: "register_customer"; customerName: string; phone: string }
   | { type: "register_payment"; customerName: string; amount: number }
   | { type: "close_account"; customerName: string }
-  | { type: "archive_account"; customerName: string };
+  | { type: "archive_account"; customerName: string }
+  | { type: "purchase_history"; customerName: string };
 
 const RECORD_DEBT_TOOL: Anthropic.Tool = {
   name: "record_debt",
@@ -88,12 +89,28 @@ const ARCHIVE_ACCOUNT_TOOL: Anthropic.Tool = {
   },
 };
 
+const PURCHASE_HISTORY_TOOL: Anthropic.Tool = {
+  name: "purchase_history",
+  description:
+    "Mostra o historico de compras e pagamentos de um cliente. So chame quando a mensagem pedir claramente " +
+    "pra ver o historico, extrato ou lista de compras de alguem, por exemplo 'historico do Ze Carlos' ou " +
+    "'extrato da Maria'. Nao chame pra registrar divida nova nem pagamento.",
+  input_schema: {
+    type: "object",
+    properties: {
+      customer_name: { type: "string", description: "Nome do cliente" },
+    },
+    required: ["customer_name"],
+  },
+};
+
 const ALL_TOOLS = [
   RECORD_DEBT_TOOL,
   REGISTER_CUSTOMER_TOOL,
   REGISTER_PAYMENT_TOOL,
   CLOSE_ACCOUNT_TOOL,
   ARCHIVE_ACCOUNT_TOOL,
+  PURCHASE_HISTORY_TOOL,
 ];
 
 const SYSTEM_PROMPT = `
@@ -107,6 +124,7 @@ O comerciante manda mensagens curtas e informais em portugues, tipo:
 "Ze Carlos pagou 20 reais" -> pagamento
 "fechar a conta do Ze Carlos" -> fechar conta
 "excluir a conta do Ze Carlos" -> arquivar conta antiga
+"historico do Ze Carlos" -> historico de compras
 
 Sua unica tarefa e decidir qual ferramenta chamar (no maximo uma) com base na mensagem, ou nenhuma se a
 mensagem nao se encaixar claramente em nenhum desses casos (por exemplo for uma pergunta de saldo, ou
@@ -162,6 +180,8 @@ export async function extractIntent(message: string): Promise<FiadoIntent | null
       return { type: "close_account", customerName };
     case "archive_account":
       return { type: "archive_account", customerName };
+    case "purchase_history":
+      return { type: "purchase_history", customerName };
     default:
       return null;
   }

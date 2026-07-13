@@ -21,6 +21,8 @@ Implementado até agora:
 - [x] Excluir/arquivar conta antiga ("excluir a conta do Zé Carlos") — só libera depois de quitada;
       nada é apagado de verdade, só para de contar pro saldo atual, e o cliente fica pronto pra uma
       conta nova
+- [x] Histórico de compras ("histórico do Zé Carlos") — lista as últimas dívidas e pagamentos em ordem,
+      com o saldo atual no final
 - [x] Alerta semanal de cobrança (job agendado) — lista clientes com 7+ dias de dívida em aberto e
       manda um link `wa.me` pronto por cliente, com a mensagem de cobrança já escrita; o comerciante
       revisa e decide se envia — nunca cobra automaticamente
@@ -137,6 +139,7 @@ Assim que houver uma `DATABASE_URL` acessível localmente, `npm run db:generate`
 | `Zé Carlos pagou 20 reais`                                | Dá baixa no pagamento |
 | `fechar a conta do Zé Carlos`                             | Pergunta em quantas vezes vai pagar (fica aguardando a resposta) |
 | `excluir a conta do Zé Carlos`                            | Arquiva o histórico antigo (só depois de quitado) |
+| `histórico do Zé Carlos`                                  | Lista as últimas dívidas/pagamentos dele e o saldo atual |
 
 ## Fluxo implementado (cadastro de dívida)
 

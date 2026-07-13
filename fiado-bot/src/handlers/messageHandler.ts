@@ -12,6 +12,7 @@ import {
 } from "../domain/customers.js";
 import { createDebt, getCustomerBalanceCents } from "../domain/debts.js";
 import { createPayment } from "../domain/payments.js";
+import { getCustomerHistory } from "../domain/history.js";
 import { sendWhatsAppText } from "../whatsapp/client.js";
 import { formatBRL, reaisToCents } from "../utils/currency.js";
 import { normalizePhoneBR, formatPhoneDisplay } from "../utils/phone.js";
@@ -280,6 +281,33 @@ export async function handleInboundMessage(message: WhatsAppInboundMessage): Pro
         await sendWhatsAppText(
           merchantPhone,
           `Prontinho ✅ Conta antiga de ${customer.name} arquivada. Ele continua cadastrado, pronto pra uma conta nova.`
+        );
+        break;
+      }
+
+      case "purchase_history": {
+        const customer = await getOrCreateCustomer(merchant.id, intent.customerName);
+        const history = await getCustomerHistory(customer.id);
+
+        if (history.length === 0) {
+          await sendWhatsAppText(merchantPhone, `Ainda não tem nada no histórico de ${customer.name}.`);
+          break;
+        }
+
+        const lines = history.map((entry) => {
+          const date = entry.createdAt.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+          if (entry.type === "debt") {
+            const desc = entry.description ? ` (${entry.description})` : "";
+            return `${date} — Dívida: ${formatBRL(entry.amountCents)}${desc}`;
+          }
+          return `${date} — Pagamento: ${formatBRL(entry.amountCents)}`;
+        });
+
+        const balanceCents = await getCustomerBalanceCents(customer.id, customer.balanceResetAt);
+
+        await sendWhatsAppText(
+          merchantPhone,
+          `🧾 *Histórico de ${customer.name}*\n\n${lines.join("\n")}\n\nSaldo atual: ${formatBRL(balanceCents)}`
         );
         break;
       }
