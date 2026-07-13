@@ -17,6 +17,9 @@ const envSchema = z.object({
   WHATSAPP_TEMPLATE_WEEKLY_SUMMARY: z.string().optional(),
   WHATSAPP_TEMPLATE_COLLECTION_ALERT: z.string().optional(),
   WHATSAPP_TEMPLATE_DUE_REMINDER: z.string().optional(),
+
+  // Contato mostrado quando o trial de um comerciante vence (ex: "wa.me/5511999998888" ou um telefone).
+  SUPPORT_CONTACT: z.string().default("fale com quem te indicou o Fiado"),
 });
 
 const parsed = envSchema.safeParse(process.env);

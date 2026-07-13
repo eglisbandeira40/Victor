@@ -31,6 +31,7 @@ export const merchants = pgTable("merchants", {
   whatsappPhone: text("whatsapp_phone").notNull(),
   businessName: text("business_name"),
   plan: text("plan").notNull().default("trial"),
+  trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }).default(sql`now() + interval '7 days'`),
   pendingAction: jsonb("pending_action").$type<PendingAction | null>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

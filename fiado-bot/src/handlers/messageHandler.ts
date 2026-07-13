@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { processedMessages, type PendingAction } from "../db/schema.js";
 import { extractIntent } from "../ai/claude.js";
-import { getOrCreateMerchant, setPendingAction } from "../domain/merchants.js";
+import { getOrCreateMerchant, setPendingAction, setMerchantPlan } from "../domain/merchants.js";
 import {
   getOrCreateCustomer,
   findCustomerByName,
@@ -24,6 +24,7 @@ import { OVERDUE_THRESHOLD_DAYS, buildOverdueList, buildCollectionMessage } from
 import { sendWhatsAppText } from "../whatsapp/client.js";
 import { formatBRL, reaisToCents } from "../utils/currency.js";
 import { normalizePhoneBR, formatPhoneDisplay, buildWhatsAppLink } from "../utils/phone.js";
+import { env } from "../config/env.js";
 import { logger } from "../utils/logger.js";
 import type { WhatsAppInboundMessage, WhatsAppSharedContact } from "../whatsapp/types.js";
 
@@ -42,6 +43,13 @@ const WELCOME_MESSAGE =
   "Quando alguém pagar:\n" +
   "_Zé Carlos pagou 20 reais_\n\n" +
   "Isso já resolve o principal! Vamos nessa 😊";
+
+function buildTrialEndedMessage(): string {
+  return (
+    "⏰ Seu período de teste do Fiado acabou.\n\n" +
+    `Pra continuar usando, ${env.SUPPORT_CONTACT}. Assim que confirmar, libero seu acesso de novo.`
+  );
+}
 
 function parseInstallmentCount(text: string): number | null {
   const normalized = text.trim().toLowerCase();
@@ -182,6 +190,17 @@ export async function handleInboundMessage(message: WhatsAppInboundMessage): Pro
 
     if (isNew) {
       await sendWhatsAppText(merchantPhone, WELCOME_MESSAGE);
+    }
+
+    if (merchant.plan === "blocked") {
+      await sendWhatsAppText(merchantPhone, buildTrialEndedMessage());
+      return;
+    }
+
+    if (merchant.plan === "trial" && merchant.trialEndsAt && merchant.trialEndsAt.getTime() <= Date.now()) {
+      await setMerchantPlan(merchant.id, "blocked");
+      await sendWhatsAppText(merchantPhone, buildTrialEndedMessage());
+      return;
     }
 
     if (merchant.pendingAction?.type === "awaiting_installments") {

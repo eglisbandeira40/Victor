@@ -38,3 +38,13 @@ export async function listMerchants() {
 export async function setPendingAction(merchantId: string, action: PendingAction | null) {
   await db.update(merchants).set({ pendingAction: action, updatedAt: new Date() }).where(eq(merchants.id, merchantId));
 }
+
+export async function findMerchantByPhone(whatsappPhone: string) {
+  const found = await db.query.merchants.findFirst({ where: eq(merchants.whatsappPhone, whatsappPhone) });
+  return found ?? null;
+}
+
+/** plan: "trial" | "active" | "blocked" */
+export async function setMerchantPlan(merchantId: string, plan: string) {
+  await db.update(merchants).set({ plan, updatedAt: new Date() }).where(eq(merchants.id, merchantId));
+}

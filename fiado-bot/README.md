@@ -41,6 +41,9 @@ Implementado até agora:
       dias", "vence sexta") salva o vencimento junto com a dívida
 - [x] Lembrete diário de vencimento (job agendado, 8h) — no dia em que uma dívida vence, o Fiado avisa
       o comerciante com o valor e o link `wa.me` de cobrança pronto, uma única vez por dívida
+- [x] Trial de 7 dias + bloqueio — comerciante novo ganha 7 dias grátis (`trial_ends_at`); depois disso,
+      se ninguém tiver liberado o acesso (`plan = active`), o Fiado para de processar comandos e explica
+      como continuar. Liberação hoje é manual, via `/internal/set-plan` (Pix fora do Fiado, você libera)
 
 Ainda não implementado (próximas fases, schema já preparado pra isso):
 - [ ] Export CSV / endpoint de visualização de dados
@@ -95,7 +98,8 @@ específica, só acompanha o total.
 Ver [`src/db/schema.ts`](./src/db/schema.ts) (Drizzle) e as migrations em [`src/db/migrations/`](./src/db/migrations/)
 (SQL puro, prontas pra colar no console do banco).
 
-- `merchants` — dono do comércio: `whatsapp_phone` (único), `business_name`, `plan`, `pending_action`
+- `merchants` — dono do comércio: `whatsapp_phone` (único), `business_name`, `plan`
+  (`trial` | `active` | `blocked`), `trial_ends_at` (7 dias após o cadastro), `pending_action`
   (jsonb; guarda uma pergunta em aberto do bot pro comerciante, ex: "quantas parcelas?")
 - `customers` — cliente do comerciante: `name`, `phone`, `installments`, `balance_reset_at`
   (corte de "conta arquivada" — dívidas/pagamentos antes disso não contam mais pro saldo), `merchant_id`;
@@ -114,6 +118,7 @@ Ver [`src/db/schema.ts`](./src/db/schema.ts) (Drizzle) e as migrations em [`src/
 | POST   | `/webhook`                    | Recebe mensagens do WhatsApp — o coração do sistema                 |
 | POST   | `/internal/run-weekly-check`  | Dispara os jobs semanais (resumo + cobrança) na hora (`?token=WHATSAPP_VERIFY_TOKEN`), pra teste/depuração |
 | POST   | `/internal/run-due-check`     | Dispara o lembrete diário de vencimento na hora (`?token=WHATSAPP_VERIFY_TOKEN`), pra teste/depuração |
+| POST   | `/internal/set-plan`          | Libera/bloqueia um comerciante manualmente (`?token=...&phone=5511999998888&plan=active`), pra depois de confirmar um Pix |
 
 ## Rodando localmente
 
