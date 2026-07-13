@@ -3,13 +3,20 @@ import { db } from "../db/client.js";
 import { processedMessages, type PendingAction } from "../db/schema.js";
 import { extractIntent } from "../ai/claude.js";
 import { getOrCreateMerchant, setPendingAction } from "../domain/merchants.js";
-import { getOrCreateCustomer, registerCustomer, setCustomerInstallments, archiveCustomerBalance } from "../domain/customers.js";
+import {
+  getOrCreateCustomer,
+  findCustomerByName,
+  registerCustomer,
+  setCustomerInstallments,
+  archiveCustomerBalance,
+} from "../domain/customers.js";
 import { createDebt, getCustomerBalanceCents } from "../domain/debts.js";
 import { createPayment } from "../domain/payments.js";
 import { sendWhatsAppText } from "../whatsapp/client.js";
 import { formatBRL, reaisToCents } from "../utils/currency.js";
+import { normalizePhoneBR, formatPhoneDisplay } from "../utils/phone.js";
 import { logger } from "../utils/logger.js";
-import type { WhatsAppInboundMessage } from "../whatsapp/types.js";
+import type { WhatsAppInboundMessage, WhatsAppSharedContact } from "../whatsapp/types.js";
 
 const FALLBACK_MESSAGE =
   "Nao entendi 🤔\n" +
@@ -30,10 +37,17 @@ function parseInstallmentCount(text: string): number | null {
   return n;
 }
 
+function parseYesNo(text: string): boolean | null {
+  const t = text.trim().toLowerCase();
+  if (/^(sim|s|confirma|confirmado|isso|certo|correto|ok)\b/.test(t)) return true;
+  if (/^(nao|não|n|cancela|errado)\b/.test(t)) return false;
+  return null;
+}
+
 async function handlePendingInstallmentReply(
   merchantId: string,
   merchantPhone: string,
-  pending: PendingAction,
+  pending: Extract<PendingAction, { type: "awaiting_installments" }>,
   text: string
 ): Promise<void> {
   const installments = parseInstallmentCount(text);
@@ -57,6 +71,79 @@ async function handlePendingInstallmentReply(
   );
 }
 
+async function handlePendingContactConfirmation(
+  merchantId: string,
+  merchantPhone: string,
+  pending: Extract<PendingAction, { type: "awaiting_contact_confirmation" }>,
+  text: string
+): Promise<void> {
+  const answer = parseYesNo(text);
+
+  if (answer === null) {
+    await sendWhatsAppText(merchantPhone, "Não entendi 🤔 Responde só *sim* ou *não*.");
+    return;
+  }
+
+  await setPendingAction(merchantId, null);
+
+  if (!answer) {
+    await sendWhatsAppText(merchantPhone, "Ok, não salvei nada 👍 Se precisar, me manda o nome certo do cliente.");
+    return;
+  }
+
+  if (pending.matchedCustomerId) {
+    await registerCustomer(pending.matchedCustomerId, pending.phone);
+    await sendWhatsAppText(merchantPhone, `Telefone de ${pending.matchedCustomerName} salvo ✅`);
+    return;
+  }
+
+  const customer = await getOrCreateCustomer(merchantId, pending.cardName);
+  await registerCustomer(customer.id, pending.phone);
+  await sendWhatsAppText(merchantPhone, `Cadastrado ✅ ${customer.name} (telefone salvo)`);
+}
+
+async function handleSharedContact(
+  merchantId: string,
+  merchantPhone: string,
+  contact: WhatsAppSharedContact
+): Promise<void> {
+  const cardName = contact.name?.formatted_name?.trim();
+  const rawPhone = contact.phones?.[0]?.wa_id ?? contact.phones?.[0]?.phone;
+
+  if (!cardName || !rawPhone) {
+    await sendWhatsAppText(merchantPhone, "Recebi um contato mas não consegui ler o nome ou telefone dele 😕");
+    return;
+  }
+
+  const phone = normalizePhoneBR(rawPhone);
+  const matched = await findCustomerByName(merchantId, cardName);
+
+  await setPendingAction(merchantId, {
+    type: "awaiting_contact_confirmation",
+    cardName,
+    phone,
+    matchedCustomerId: matched?.id ?? null,
+    matchedCustomerName: matched?.name ?? null,
+  });
+
+  const phoneDisplay = formatPhoneDisplay(phone);
+
+  if (matched) {
+    await sendWhatsAppText(
+      merchantPhone,
+      `📇 Peguei o contato: *${cardName}* — ${phoneDisplay}\n` +
+        `É o telefone do seu cliente *${matched.name}*? Responde *sim* pra eu salvar.`
+    );
+  } else {
+    await sendWhatsAppText(
+      merchantPhone,
+      `📇 Peguei o contato: *${cardName}* — ${phoneDisplay}\n` +
+        `Não tenho nenhum cliente chamado ${cardName} ainda. Quer que eu cadastre ele com esse telefone? ` +
+        `Responde *sim* pra confirmar.`
+    );
+  }
+}
+
 export async function handleInboundMessage(message: WhatsAppInboundMessage): Promise<void> {
   const alreadyProcessed = await db.query.processedMessages.findFirst({
     where: eq(processedMessages.waMessageId, message.id),
@@ -77,6 +164,16 @@ export async function handleInboundMessage(message: WhatsAppInboundMessage): Pro
 
     if (merchant.pendingAction?.type === "awaiting_installments") {
       await handlePendingInstallmentReply(merchant.id, merchantPhone, merchant.pendingAction, bodyText ?? "");
+      return;
+    }
+
+    if (merchant.pendingAction?.type === "awaiting_contact_confirmation") {
+      await handlePendingContactConfirmation(merchant.id, merchantPhone, merchant.pendingAction, bodyText ?? "");
+      return;
+    }
+
+    if (message.type === "contacts" && message.contacts?.length) {
+      await handleSharedContact(merchant.id, merchantPhone, message.contacts[0]);
       return;
     }
 
@@ -118,14 +215,10 @@ export async function handleInboundMessage(message: WhatsAppInboundMessage): Pro
 
       case "register_customer": {
         const customer = await getOrCreateCustomer(merchant.id, intent.customerName);
-        await registerCustomer(customer.id, { phone: intent.phone, address: intent.address });
+        const phone = normalizePhoneBR(intent.phone);
+        await registerCustomer(customer.id, phone);
 
-        const parts: string[] = [];
-        if (intent.phone) parts.push("telefone");
-        if (intent.address) parts.push("endereço");
-        const details = parts.length ? ` (${parts.join(" e ")} salvos)` : "";
-
-        await sendWhatsAppText(merchantPhone, `Cadastrado ✅ ${customer.name}${details}`);
+        await sendWhatsAppText(merchantPhone, `Cadastrado ✅ ${customer.name} (telefone salvo)`);
         break;
       }
 

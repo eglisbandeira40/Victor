@@ -15,10 +15,17 @@ export interface WhatsAppWebhookPayload {
   }>;
 }
 
+export interface WhatsAppSharedContact {
+  name?: { formatted_name?: string };
+  phones?: Array<{ phone?: string; wa_id?: string }>;
+}
+
 export interface WhatsAppInboundMessage {
   from: string;
   id: string;
   timestamp: string;
   type: string;
   text?: { body: string };
+  /** Presente quando type === "contacts": cartao(oes) de contato compartilhado pelo comerciante. */
+  contacts?: WhatsAppSharedContact[];
 }

@@ -10,12 +10,20 @@ import {
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
-export interface PendingAction {
-  type: "awaiting_installments";
-  customerId: string;
-  customerName: string;
-  balanceCents: number;
-}
+export type PendingAction =
+  | {
+      type: "awaiting_installments";
+      customerId: string;
+      customerName: string;
+      balanceCents: number;
+    }
+  | {
+      type: "awaiting_contact_confirmation";
+      cardName: string;
+      phone: string;
+      matchedCustomerId: string | null;
+      matchedCustomerName: string | null;
+    };
 
 export const merchants = pgTable("merchants", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -34,7 +42,6 @@ export const customers = pgTable("customers", {
   merchantId: uuid("merchant_id").notNull().references(() => merchants.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   phone: text("phone"),
-  address: text("address"),
   installments: integer("installments"),
   balanceResetAt: timestamp("balance_reset_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

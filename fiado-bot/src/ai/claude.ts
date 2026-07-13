@@ -6,7 +6,7 @@ export const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
 export type FiadoIntent =
   | { type: "record_debt"; customerName: string; amount: number; description?: string }
-  | { type: "register_customer"; customerName: string; phone?: string; address?: string }
+  | { type: "register_customer"; customerName: string; phone: string }
   | { type: "register_payment"; customerName: string; amount: number }
   | { type: "close_account"; customerName: string }
   | { type: "archive_account"; customerName: string };
@@ -31,17 +31,16 @@ const RECORD_DEBT_TOOL: Anthropic.Tool = {
 const REGISTER_CUSTOMER_TOOL: Anthropic.Tool = {
   name: "register_customer",
   description:
-    "Cadastra um cliente ou atualiza os dados dele (telefone e/ou endereco). So chame quando a mensagem " +
-    "comecar com algo como 'cadastrar', 'cadastro de', 'telefone do/da', ou claramente estiver informando " +
-    "dados de contato de um cliente pelo nome, sem mencionar valor de divida ou pagamento.",
+    "Cadastra um cliente ou atualiza o telefone dele. So chame quando a mensagem comecar com algo como " +
+    "'cadastrar', 'cadastro de', 'telefone do/da', ou claramente estiver informando o telefone de um " +
+    "cliente pelo nome, sem mencionar valor de divida ou pagamento.",
   input_schema: {
     type: "object",
     properties: {
       customer_name: { type: "string", description: "Nome do cliente" },
-      phone: { type: "string", description: "Telefone do cliente, se mencionado" },
-      address: { type: "string", description: "Endereco do cliente, se mencionado" },
+      phone: { type: "string", description: "Telefone do cliente" },
     },
-    required: ["customer_name"],
+    required: ["customer_name", "phone"],
   },
 };
 
@@ -103,8 +102,8 @@ Voce e um extrator de dados para o Fiado, um bot de WhatsApp que ajuda donos de 
 
 O comerciante manda mensagens curtas e informais em portugues, tipo:
 "Ze Carlos, 45 reais, o almoco de hoje" -> nova divida
-"cadastrar Ze Carlos, telefone 11987654321, endereco Rua das Flores 123" -> cadastro/atualizacao de cliente
-"telefone do Ze Carlos, 11987654321" -> cadastro/atualizacao de cliente (so telefone)
+"cadastrar Ze Carlos, telefone 11987654321" -> cadastro/atualizacao de cliente
+"telefone do Ze Carlos, 11987654321" -> cadastro/atualizacao de cliente
 "Ze Carlos pagou 20 reais" -> pagamento
 "fechar a conta do Ze Carlos" -> fechar conta
 "excluir a conta do Ze Carlos" -> arquivar conta antiga
@@ -151,9 +150,8 @@ export async function extractIntent(message: string): Promise<FiadoIntent | null
     }
     case "register_customer": {
       const phone = str(input.phone);
-      const address = str(input.address);
-      if (!phone && !address) return null;
-      return { type: "register_customer", customerName, phone, address };
+      if (!phone) return null;
+      return { type: "register_customer", customerName, phone };
     }
     case "register_payment": {
       const amount = typeof input.amount === "number" ? input.amount : undefined;

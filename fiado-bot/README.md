@@ -11,7 +11,10 @@ Implementado até agora:
 - [x] Criação automática de comerciante (na primeira mensagem) e cliente (na primeira dívida)
 - [x] Soma ao saldo existente do cliente quando ele já existe
 - [x] Confirmação no tom de voz do Fiado, com saldo total atualizado
-- [x] Cadastro completo de cliente ("cadastrar Zé Carlos, telefone 11987654321, endereço Rua X")
+- [x] Cadastro/atualização de telefone do cliente ("cadastrar Zé Carlos, telefone 11987654321")
+- [x] Reconhecimento de contato compartilhado do WhatsApp — o comerciante compartilha o cartão de
+      contato do cliente direto na conversa, o Fiado lê nome+telefone e **pergunta antes de salvar**
+      (evita salvar o telefone errado quando há homônimos na lista de contatos)
 - [x] Baixa de pagamento ("Zé Carlos pagou 20 reais")
 - [x] Fechar conta ("fechar a conta do Zé Carlos") — pergunta em quantas vezes vai pagar (informativo;
       cada parcela é dada baixa normalmente com "Zé pagou X")
@@ -79,7 +82,7 @@ Ver [`src/db/schema.ts`](./src/db/schema.ts) (Drizzle) e as migrations em [`src/
 
 - `merchants` — dono do comércio: `whatsapp_phone` (único), `business_name`, `plan`, `pending_action`
   (jsonb; guarda uma pergunta em aberto do bot pro comerciante, ex: "quantas parcelas?")
-- `customers` — cliente do comerciante: `name`, `phone`, `address`, `installments`, `balance_reset_at`
+- `customers` — cliente do comerciante: `name`, `phone`, `installments`, `balance_reset_at`
   (corte de "conta arquivada" — dívidas/pagamentos antes disso não contam mais pro saldo), `merchant_id`;
   único por `(merchant_id, lower(name))`
 - `debts` — dívida: `customer_id`, `merchant_id`, `amount_cents`, `description`, `created_at`
@@ -119,20 +122,21 @@ Ver [`.env.example`](./.env.example). Resumo:
 ### Banco de dados
 
 Rode as migrations de [`src/db/migrations/`](./src/db/migrations/), em ordem (`0001_init.sql`,
-`0002_account_lifecycle.sql`, ...), no console/SQL editor do seu Postgres. Assim que houver uma
-`DATABASE_URL` acessível localmente, `npm run db:generate` / `npm run db:migrate` (drizzle-kit)
-assumem esse papel a partir da próxima migration.
+`0002_account_lifecycle.sql`, `0003_remove_address.sql`, ...), no console/SQL editor do seu Postgres.
+Assim que houver uma `DATABASE_URL` acessível localmente, `npm run db:generate` / `npm run db:migrate`
+(drizzle-kit) assumem esse papel a partir da próxima migration.
 
 ### Comandos que o comerciante pode mandar hoje
 
-| Mensagem (exemplo)                                                  | O que faz |
-|-----------------------------------------------------------------------|-----------|
-| `Zé Carlos, 45 reais, o almoço de hoje`                                | Registra dívida, soma ao saldo do cliente |
-| `cadastrar Zé Carlos, telefone 11987654321, endereço Rua das Flores 123` | Cadastra/atualiza telefone e endereço |
-| `telefone do Zé Carlos, 11987654321`                                   | Atalho só pro telefone |
-| `Zé Carlos pagou 20 reais`                                             | Dá baixa no pagamento |
-| `fechar a conta do Zé Carlos`                                          | Pergunta em quantas vezes vai pagar (fica aguardando a resposta) |
-| `excluir a conta do Zé Carlos`                                         | Arquiva o histórico antigo (só depois de quitado) |
+| Mensagem (exemplo)                                     | O que faz |
+|----------------------------------------------------------|-----------|
+| `Zé Carlos, 45 reais, o almoço de hoje`                   | Registra dívida, soma ao saldo do cliente |
+| `cadastrar Zé Carlos, telefone 11987654321`               | Cadastra/atualiza o telefone |
+| `telefone do Zé Carlos, 11987654321`                      | Mesma coisa, forma curta |
+| *(compartilhar um contato do WhatsApp)*                   | Fiado lê nome+telefone do cartão e pergunta antes de salvar |
+| `Zé Carlos pagou 20 reais`                                | Dá baixa no pagamento |
+| `fechar a conta do Zé Carlos`                             | Pergunta em quantas vezes vai pagar (fica aguardando a resposta) |
+| `excluir a conta do Zé Carlos`                            | Arquiva o histórico antigo (só depois de quitado) |
 
 ## Fluxo implementado (cadastro de dívida)
 
@@ -145,6 +149,21 @@ assumem esse papel a partir da próxima migration.
 6. Insere a `debt`
 7. Calcula o saldo total do cliente (soma de dívidas − soma de pagamentos)
 8. Responde: `"Anotado ✅ Zé Carlos deve R$ 45,00 (almoço de hoje). No total Zé te deve R$ 45,00"`
+
+## Contato compartilhado
+
+O WhatsApp Business Cloud API não dá acesso à agenda de contatos do comerciante (não existe essa permissão
+na API oficial da Meta) — mas o comerciante pode **compartilhar o cartão de contato** de um cliente direto
+na conversa (anexo → Contato). O Fiado reconhece mensagens do tipo `contacts`, lê nome e telefone do cartão,
+tenta casar com um cliente já cadastrado pelo nome e **sempre pergunta antes de salvar**:
+
+```
+📇 Peguei o contato: Zé Carlos — +5511987654321
+É o telefone do seu cliente Zé Carlos? Responde sim pra eu salvar.
+```
+
+Essa confirmação existe de propósito: o comerciante pode ter mais de um contato com nome parecido na
+agenda pessoal, e a confirmação evita salvar o telefone errado num cliente do Fiado.
 
 ## Alerta de cobrança (job semanal)
 

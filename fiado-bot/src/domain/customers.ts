@@ -22,12 +22,20 @@ export async function getOrCreateCustomer(merchantId: string, name: string) {
   return fallback;
 }
 
-export async function registerCustomer(customerId: string, fields: { phone?: string; address?: string }) {
-  const patch: Record<string, unknown> = { updatedAt: new Date() };
-  if (fields.phone) patch.phone = fields.phone;
-  if (fields.address) patch.address = fields.address;
+export async function findCustomerByName(merchantId: string, name: string) {
+  const found = await db.query.customers.findFirst({
+    where: and(eq(customers.merchantId, merchantId), sql`lower(${customers.name}) = lower(${name})`),
+  });
+  return found ?? null;
+}
 
-  const [updated] = await db.update(customers).set(patch).where(eq(customers.id, customerId)).returning();
+export async function registerCustomer(customerId: string, phone: string) {
+  const [updated] = await db
+    .update(customers)
+    .set({ phone, updatedAt: new Date() })
+    .where(eq(customers.id, customerId))
+    .returning();
+
   return updated;
 }
 
