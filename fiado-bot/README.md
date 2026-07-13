@@ -26,10 +26,12 @@ Implementado até agora:
 - [x] Alerta semanal de cobrança (job agendado) — lista clientes com 7+ dias de dívida em aberto e
       manda um link `wa.me` pronto por cliente, com a mensagem de cobrança já escrita; o comerciante
       revisa e decide se envia — nunca cobra automaticamente
+- [x] Consulta de saldo — "quanto o Zé me deve?" (saldo de um cliente), "quem tá devendo mais de 100
+      reais?" ou "quem tá devendo?" (lista geral, do maior devedor pro menor)
+- [x] Resumo geral — "resumo da semana" ou "como está o caixa" (total em aberto, clientes devendo,
+      recebido nos últimos 7 dias), sob demanda **e** proativo toda segunda de manhã
 
 Ainda não implementado (próximas fases, schema já preparado pra isso):
-- [ ] Consulta de saldo ("Quanto o Zé me deve?", "Quem tá devendo mais de 100?", "Resumo da semana")
-- [ ] Resumo semanal proativo (total em aberto, quantos clientes devendo, quanto foi recebido)
 - [ ] Export CSV / endpoint de visualização de dados
 
 ## Arquitetura
@@ -140,6 +142,9 @@ Assim que houver uma `DATABASE_URL` acessível localmente, `npm run db:generate`
 | `fechar a conta do Zé Carlos`                             | Pergunta em quantas vezes vai pagar (fica aguardando a resposta) |
 | `excluir a conta do Zé Carlos`                            | Arquiva o histórico antigo (só depois de quitado) |
 | `histórico do Zé Carlos`                                  | Lista as últimas dívidas/pagamentos dele e o saldo atual |
+| `quanto o Zé Carlos me deve?`                              | Saldo desse cliente específico |
+| `quem tá devendo mais de 100 reais?` / `quem tá devendo?`  | Lista geral de devedores, do maior pro menor |
+| `resumo da semana` / `como está o caixa`                   | Total em aberto, clientes devendo, recebido nos últimos 7 dias |
 
 ## Fluxo implementado (cadastro de dívida)
 
@@ -168,12 +173,24 @@ tenta casar com um cliente já cadastrado pelo nome e **sempre pergunta antes de
 Essa confirmação existe de propósito: o comerciante pode ter mais de um contato com nome parecido na
 agenda pessoal, e a confirmação evita salvar o telefone errado num cliente do Fiado.
 
-## Alerta de cobrança (job semanal)
+## Jobs semanais (toda segunda, 9h)
 
-Toda segunda às 9h (`America/Sao_Paulo`), o Fiado varre todos os merchants e, pra cada um, calcula quais
-clientes têm saldo em aberto com a dívida mais antiga passando de `OVERDUE_THRESHOLD_DAYS` (7 dias, ver
-[`src/jobs/weeklyCollectionReminder.ts`](./src/jobs/weeklyCollectionReminder.ts)). Se houver algum, manda
-pro comerciante um resumo assim:
+Toda segunda às 9h (`America/Sao_Paulo`), dois jobs rodam em sequência pra cada merchant (ver
+[`src/jobs/scheduler.ts`](./src/jobs/scheduler.ts)):
+
+1. **Resumo geral** ([`weeklySummaryJob.ts`](./src/jobs/weeklySummaryJob.ts)) — manda sempre, pra todo
+   mundo, o mesmo resumo que "resumo da semana" mostra sob demanda (total em aberto, clientes devendo,
+   recebido nos últimos 7 dias)
+2. **Alerta de cobrança** ([`weeklyCollectionReminder.ts`](./src/jobs/weeklyCollectionReminder.ts)) — só
+   manda se houver cliente com dívida em aberto há mais de `OVERDUE_THRESHOLD_DAYS` (7 dias)
+
+Pra testar sem esperar segunda-feira: `POST /internal/run-weekly-check?token=SEU_WHATSAPP_VERIFY_TOKEN`
+dispara os dois jobs na hora.
+
+### Alerta de cobrança
+
+Calcula quais clientes têm saldo em aberto com a dívida mais antiga passando do prazo. Se houver algum,
+manda pro comerciante um resumo assim:
 
 ```
 📋 Cobranças da semana
@@ -194,8 +211,6 @@ revisa e aperta enviar. O Fiado **nunca manda a cobrança direto pro cliente fin
 de número de destinatário aprovado ou mensagem-template paga, e mantém o comerciante no controle.
 
 Pra clientes sem telefone salvo, o comerciante ensina com `telefone do Zé Carlos, 11987654321`.
-
-Pra testar sem esperar segunda-feira: `POST /internal/run-weekly-check?token=SEU_WHATSAPP_VERIFY_TOKEN`.
 
 ## Deploy
 

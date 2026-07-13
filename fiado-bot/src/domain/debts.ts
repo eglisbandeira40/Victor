@@ -103,3 +103,41 @@ export async function getOverdueCustomersForMerchant(
     daysOverdue: row.days_overdue,
   }));
 }
+
+export interface CustomerBalance {
+  customerId: string;
+  name: string;
+  balanceCents: number;
+}
+
+/** Saldo (positivo, zero ou negativo) de cada cliente do merchant, respeitando balance_reset_at. */
+export async function getCustomerBalancesForMerchant(merchantId: string): Promise<CustomerBalance[]> {
+  const rows = await db.execute<{ customer_id: string; name: string; balance_cents: number }>(sql`
+    select
+      c.id as customer_id,
+      c.name as name,
+      (coalesce(d.total_debt, 0) - coalesce(p.total_paid, 0))::int as balance_cents
+    from ${customers} c
+    left join lateral (
+      select sum(amount_cents) as total_debt
+      from ${debts}
+      where merchant_id = ${merchantId}
+        and customer_id = c.id
+        and created_at > coalesce(c.balance_reset_at, '-infinity'::timestamptz)
+    ) d on true
+    left join lateral (
+      select sum(amount_cents) as total_paid
+      from ${payments}
+      where merchant_id = ${merchantId}
+        and customer_id = c.id
+        and created_at > coalesce(c.balance_reset_at, '-infinity'::timestamptz)
+    ) p on true
+    where c.merchant_id = ${merchantId}
+  `);
+
+  return rows.map((row) => ({
+    customerId: row.customer_id,
+    name: row.name,
+    balanceCents: row.balance_cents,
+  }));
+}

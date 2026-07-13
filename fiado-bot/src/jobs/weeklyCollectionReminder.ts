@@ -17,7 +17,7 @@ function buildCollectionMessage(businessName: string | null, customer: OverdueCu
   );
 }
 
-function buildWeeklySummary(businessName: string | null, overdue: OverdueCustomer[]): string {
+function buildOverdueList(businessName: string | null, overdue: OverdueCustomer[]): string {
   const lines = overdue.map((customer, i) => {
     const header = `${i + 1}) ${customer.name} — ${formatBRL(customer.balanceCents)} (${customer.daysOverdue} dias)`;
 
@@ -50,8 +50,8 @@ export async function runWeeklyCollectionCheck(): Promise<void> {
       const overdue = await getOverdueCustomersForMerchant(merchant.id, OVERDUE_THRESHOLD_DAYS);
       if (overdue.length === 0) continue;
 
-      const summary = buildWeeklySummary(merchant.businessName, overdue);
-      await sendWhatsAppText(merchant.whatsappPhone, summary);
+      const message = buildOverdueList(merchant.businessName, overdue);
+      await sendWhatsAppText(merchant.whatsappPhone, message);
     } catch (err) {
       logger.error("Erro ao processar cobranca semanal de um merchant", {
         merchantId: merchant.id,

@@ -10,7 +10,10 @@ export type FiadoIntent =
   | { type: "register_payment"; customerName: string; amount: number }
   | { type: "close_account"; customerName: string }
   | { type: "archive_account"; customerName: string }
-  | { type: "purchase_history"; customerName: string };
+  | { type: "purchase_history"; customerName: string }
+  | { type: "query_balance"; customerName: string }
+  | { type: "query_debtors"; minAmount?: number }
+  | { type: "weekly_summary" };
 
 const RECORD_DEBT_TOOL: Anthropic.Tool = {
   name: "record_debt",
@@ -104,6 +107,44 @@ const PURCHASE_HISTORY_TOOL: Anthropic.Tool = {
   },
 };
 
+const QUERY_BALANCE_TOOL: Anthropic.Tool = {
+  name: "query_balance",
+  description:
+    "Responde quanto um cliente especifico deve. Chame quando o comerciante perguntar o saldo de alguem, " +
+    "por exemplo 'quanto o Ze Carlos me deve?' ou 'saldo do Ze Carlos'.",
+  input_schema: {
+    type: "object",
+    properties: {
+      customer_name: { type: "string", description: "Nome do cliente" },
+    },
+    required: ["customer_name"],
+  },
+};
+
+const QUERY_DEBTORS_TOOL: Anthropic.Tool = {
+  name: "query_debtors",
+  description:
+    "Lista os clientes que estao devendo no momento, do que mais deve pro que menos deve. Chame quando o " +
+    "comerciante perguntar quem esta devendo, por exemplo 'quem ta devendo?' ou 'quem deve mais de 100 reais?'. " +
+    "Se a mensagem mencionar um valor minimo, preencha min_amount; senao deixe vazio pra listar todo mundo.",
+  input_schema: {
+    type: "object",
+    properties: {
+      min_amount: { type: "number", description: "Valor minimo em reais, se mencionado (ex: 100 para 'mais de 100 reais')" },
+    },
+    required: [],
+  },
+};
+
+const WEEKLY_SUMMARY_TOOL: Anthropic.Tool = {
+  name: "weekly_summary",
+  description:
+    "Mostra um resumo geral do negocio: total em aberto, quantos clientes devendo, e quanto foi recebido na " +
+    "ultima semana. Chame quando o comerciante pedir um resumo geral, por exemplo 'resumo da semana', 'como " +
+    "esta o caixa' ou 'resumo geral'.",
+  input_schema: { type: "object", properties: {}, required: [] },
+};
+
 const ALL_TOOLS = [
   RECORD_DEBT_TOOL,
   REGISTER_CUSTOMER_TOOL,
@@ -111,6 +152,9 @@ const ALL_TOOLS = [
   CLOSE_ACCOUNT_TOOL,
   ARCHIVE_ACCOUNT_TOOL,
   PURCHASE_HISTORY_TOOL,
+  QUERY_BALANCE_TOOL,
+  QUERY_DEBTORS_TOOL,
+  WEEKLY_SUMMARY_TOOL,
 ];
 
 const SYSTEM_PROMPT = `
@@ -125,10 +169,12 @@ O comerciante manda mensagens curtas e informais em portugues, tipo:
 "fechar a conta do Ze Carlos" -> fechar conta
 "excluir a conta do Ze Carlos" -> arquivar conta antiga
 "historico do Ze Carlos" -> historico de compras
+"quanto o Ze Carlos me deve?" -> saldo de um cliente
+"quem ta devendo mais de 100 reais?" ou "quem ta devendo?" -> lista de devedores
+"resumo da semana" ou "como esta o caixa" -> resumo geral
 
 Sua unica tarefa e decidir qual ferramenta chamar (no maximo uma) com base na mensagem, ou nenhuma se a
-mensagem nao se encaixar claramente em nenhum desses casos (por exemplo for uma pergunta de saldo, ou
-faltar os dados necessarios).
+mensagem nao se encaixar claramente em nenhum desses casos ou faltar os dados necessarios.
 `.trim();
 
 function isToolUseBlock(block: Anthropic.ContentBlock): block is Anthropic.ToolUseBlock {
@@ -153,8 +199,17 @@ export async function extractIntent(message: string): Promise<FiadoIntent | null
   if (!toolUse) return null;
 
   const input = toolUse.input as Record<string, unknown>;
-  const customerName = str(input.customer_name);
 
+  if (toolUse.name === "query_debtors") {
+    const minAmount = typeof input.min_amount === "number" && input.min_amount > 0 ? input.min_amount : undefined;
+    return { type: "query_debtors", minAmount };
+  }
+
+  if (toolUse.name === "weekly_summary") {
+    return { type: "weekly_summary" };
+  }
+
+  const customerName = str(input.customer_name);
   if (!customerName) {
     logger.warn(`${toolUse.name} chamado sem customer_name valido`, { input });
     return null;
@@ -182,6 +237,8 @@ export async function extractIntent(message: string): Promise<FiadoIntent | null
       return { type: "archive_account", customerName };
     case "purchase_history":
       return { type: "purchase_history", customerName };
+    case "query_balance":
+      return { type: "query_balance", customerName };
     default:
       return null;
   }

@@ -10,9 +10,10 @@ import {
   setCustomerInstallments,
   archiveCustomerBalance,
 } from "../domain/customers.js";
-import { createDebt, getCustomerBalanceCents } from "../domain/debts.js";
+import { createDebt, getCustomerBalanceCents, getCustomerBalancesForMerchant } from "../domain/debts.js";
 import { createPayment } from "../domain/payments.js";
 import { getCustomerHistory } from "../domain/history.js";
+import { getMerchantSummary, formatSummaryMessage } from "../domain/summary.js";
 import { sendWhatsAppText } from "../whatsapp/client.js";
 import { formatBRL, reaisToCents } from "../utils/currency.js";
 import { normalizePhoneBR, formatPhoneDisplay } from "../utils/phone.js";
@@ -309,6 +310,53 @@ export async function handleInboundMessage(message: WhatsAppInboundMessage): Pro
           merchantPhone,
           `🧾 *Histórico de ${customer.name}*\n\n${lines.join("\n")}\n\nSaldo atual: ${formatBRL(balanceCents)}`
         );
+        break;
+      }
+
+      case "query_balance": {
+        const customer = await findCustomerByName(merchant.id, intent.customerName);
+
+        if (!customer) {
+          await sendWhatsAppText(merchantPhone, `Não tenho nenhum cliente chamado ${intent.customerName} cadastrado.`);
+          break;
+        }
+
+        const balanceCents = await getCustomerBalanceCents(customer.id, customer.balanceResetAt);
+        const reply =
+          balanceCents > 0
+            ? `${customer.name} te deve ${formatBRL(balanceCents)}`
+            : `${customer.name} não deve nada agora 👍`;
+
+        await sendWhatsAppText(merchantPhone, reply);
+        break;
+      }
+
+      case "query_debtors": {
+        const minCents = intent.minAmount ? reaisToCents(intent.minAmount) : 0;
+        const balances = await getCustomerBalancesForMerchant(merchant.id);
+        const debtors = balances.filter((b) => b.balanceCents > minCents).sort((a, b) => b.balanceCents - a.balanceCents);
+
+        if (debtors.length === 0) {
+          const reply = intent.minAmount
+            ? `Ninguém devendo mais de ${formatBRL(minCents)} no momento 👍`
+            : `Ninguém te deve nada agora 🎉`;
+          await sendWhatsAppText(merchantPhone, reply);
+          break;
+        }
+
+        const lines = debtors.map((d, i) => `${i + 1}) ${d.name} — ${formatBRL(d.balanceCents)}`);
+        const total = debtors.reduce((sum, d) => sum + d.balanceCents, 0);
+
+        await sendWhatsAppText(
+          merchantPhone,
+          `Quem tá devendo:\n\n${lines.join("\n")}\n\nTotal: ${formatBRL(total)} com ${debtors.length} cliente(s)`
+        );
+        break;
+      }
+
+      case "weekly_summary": {
+        const summary = await getMerchantSummary(merchant.id);
+        await sendWhatsAppText(merchantPhone, formatSummaryMessage(summary));
         break;
       }
     }

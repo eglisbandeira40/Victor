@@ -1,10 +1,10 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { env } from "../config/env.js";
-import { runWeeklyCollectionCheck } from "../jobs/weeklyCollectionReminder.js";
+import { runWeeklyJobs } from "../jobs/scheduler.js";
 import { logger } from "../utils/logger.js";
 
 /**
- * Rota interna pra disparar o job semanal manualmente (teste/depuracao), sem esperar o cron.
+ * Rota interna pra disparar os jobs semanais manualmente (teste/depuracao), sem esperar o cron.
  * Protegida pelo mesmo token de verificacao do webhook - nao e pra uso publico.
  */
 export async function registerInternalRoutes(app: FastifyInstance) {
@@ -16,10 +16,10 @@ export async function registerInternalRoutes(app: FastifyInstance) {
     }
 
     try {
-      await runWeeklyCollectionCheck();
+      await runWeeklyJobs();
       return reply.send({ ok: true });
     } catch (err) {
-      logger.error("Erro ao rodar cobranca semanal manualmente", {
+      logger.error("Erro ao rodar jobs semanais manualmente", {
         error: err instanceof Error ? err.message : err,
       });
       return reply.status(500).send({ ok: false });
