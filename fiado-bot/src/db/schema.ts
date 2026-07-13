@@ -47,7 +47,7 @@ export const customers = pgTable("customers", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
-  uniqueIndex("customers_merchant_id_lower_name_key").on(table.merchantId, sql`lower(${table.name})`),
+  uniqueIndex("customers_merchant_id_lower_name_key").on(table.merchantId, sql`lower(immutable_unaccent(${table.name}))`),
   index("customers_merchant_id_idx").on(table.merchantId),
 ]);
 

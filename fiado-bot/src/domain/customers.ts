@@ -4,7 +4,7 @@ import { customers } from "../db/schema.js";
 
 export async function getOrCreateCustomer(merchantId: string, name: string) {
   const existing = await db.query.customers.findFirst({
-    where: and(eq(customers.merchantId, merchantId), sql`lower(${customers.name}) = lower(${name})`),
+    where: and(eq(customers.merchantId, merchantId), sql`lower(unaccent(${customers.name})) = lower(unaccent(${name}))`),
   });
 
   if (existing) return existing;
@@ -15,7 +15,7 @@ export async function getOrCreateCustomer(merchantId: string, name: string) {
   if (created) return created;
 
   const fallback = await db.query.customers.findFirst({
-    where: and(eq(customers.merchantId, merchantId), sql`lower(${customers.name}) = lower(${name})`),
+    where: and(eq(customers.merchantId, merchantId), sql`lower(unaccent(${customers.name})) = lower(unaccent(${name}))`),
   });
 
   if (!fallback) throw new Error(`Nao foi possivel obter/criar cliente "${name}" para merchant ${merchantId}`);
@@ -24,7 +24,7 @@ export async function getOrCreateCustomer(merchantId: string, name: string) {
 
 export async function findCustomerByName(merchantId: string, name: string) {
   const found = await db.query.customers.findFirst({
-    where: and(eq(customers.merchantId, merchantId), sql`lower(${customers.name}) = lower(${name})`),
+    where: and(eq(customers.merchantId, merchantId), sql`lower(unaccent(${customers.name})) = lower(unaccent(${name}))`),
   });
   return found ?? null;
 }
