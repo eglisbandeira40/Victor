@@ -221,47 +221,21 @@ h1, h2, h3 {
   color: var(--ink-soft);
 }
 
-/* hero visual: illustrated shopkeeper + phone mockup */
+/* hero visual: phone mockup */
 .hero-visual {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
 }
 
-.hero-character {
-  width: 190px;
-  flex-shrink: 0;
-  margin-right: -38px;
-  margin-bottom: 18px;
-  z-index: 0;
-  pointer-events: none;
-}
-.hc-blob { fill: var(--brand-soft); }
-.hc-counter { fill: var(--brand); }
-.hc-counter-top { fill: var(--brand-dark); }
-.hc-apron { fill: var(--rust); }
-.hc-shirt, .hc-sleeve { fill: var(--paper-raised); stroke: var(--line); stroke-width: 1; }
-.hc-skin { fill: var(--ink); opacity: 0.85; }
-.hc-face-dot { fill: var(--paper); }
-.hc-face { stroke: var(--paper); }
-.hc-badge-bg, .hc-badge-tail { fill: var(--brand); }
-.hc-badge-check { stroke: #fff; }
-
-@media (max-width: 860px) {
-  .hero-character { display: none; }
-}
-
-/* phone mockup (static hero visual) */
 .phone-mock {
-  position: relative;
-  z-index: 1;
   background: var(--wa-chat-bg);
   border-radius: 22px;
   overflow: hidden;
   box-shadow: var(--shadow);
   border: 1px solid var(--line);
-  max-width: 340px;
-  flex-shrink: 0;
+  max-width: 380px;
+  width: 100%;
 }
 .phone-head {
   background: var(--wa-header);
@@ -477,15 +451,6 @@ section { padding: 64px 0; }
 }
 .final-cta h2 { font-size: clamp(1.6rem, 3.4vw, 2.3rem); margin-bottom: 14px; }
 .final-cta p { color: var(--ink-soft); margin-bottom: 26px; max-width: 46ch; margin-inline: auto; }
-
-.cta-character { width: 108px; height: 108px; margin: 0 auto 18px; }
-.cc-blob { fill: var(--paper); opacity: 0.6; }
-.cc-shirt { fill: var(--rust); }
-.cc-skin { fill: var(--ink); opacity: 0.85; }
-.cc-face-dot { fill: var(--paper); }
-.cc-face { stroke: var(--paper); }
-.cc-badge-bg { fill: var(--brand); stroke: var(--brand-soft); stroke-width: 4; }
-.cc-badge-check { stroke: #fff; }
 
 /* footer */
 footer {
