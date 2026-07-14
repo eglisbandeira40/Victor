@@ -17,7 +17,8 @@ export type FiadoIntent =
   | { type: "monthly_statement" }
   | { type: "list_defaulters" }
   | { type: "collect_customer"; customerName: string }
-  | { type: "add_team_member"; memberName: string; phone: string };
+  | { type: "add_team_member"; memberName: string; phone: string }
+  | { type: "member_activity"; memberName: string };
 
 const RECORD_DEBT_TOOL: Anthropic.Tool = {
   name: "record_debt",
@@ -211,6 +212,23 @@ const ADD_TEAM_MEMBER_TOOL: Anthropic.Tool = {
   },
 };
 
+const MEMBER_ACTIVITY_TOOL: Anthropic.Tool = {
+  name: "member_activity",
+  description:
+    "Lista o que UM FUNCIONARIO especifico lancou (dividas e pagamentos), em todos os clientes, mais " +
+    "recente primeiro. So chame quando a mensagem pedir claramente os lancamentos/historico de um " +
+    "funcionario/colaborador pelo nome, por exemplo 'lancamentos do Carlos' ou 'historico do funcionario " +
+    "Carlos' ou 'o que o Carlos lancou'. Diferente de purchase_history, que e sobre um CLIENTE, nao " +
+    "funcionario.",
+  input_schema: {
+    type: "object",
+    properties: {
+      member_name: { type: "string", description: "Nome do funcionario/colaborador" },
+    },
+    required: ["member_name"],
+  },
+};
+
 const ALL_TOOLS = [
   RECORD_DEBT_TOOL,
   REGISTER_CUSTOMER_TOOL,
@@ -225,6 +243,7 @@ const ALL_TOOLS = [
   LIST_DEFAULTERS_TOOL,
   COLLECT_CUSTOMER_TOOL,
   ADD_TEAM_MEMBER_TOOL,
+  MEMBER_ACTIVITY_TOOL,
 ];
 
 function buildSystemPrompt(): string {
@@ -254,6 +273,7 @@ O comerciante manda mensagens curtas e informais em portugues, tipo:
 "quem esta inadimplente?" ou "clientes inadimplentes" -> lista de inadimplentes com cobranca pronta
 "cobrar Ze Carlos" ou "cobra a Suellen Bandeira" -> cobranca pronta de UM cliente especifico
 "meu funcionario Carlos vai lancar fiado tambem, numero 11988887777" -> autorizar funcionario
+"lancamentos do Carlos" ou "o que o Carlos lancou" -> atividade de UM funcionario especifico
 
 Sua unica tarefa e decidir qual ferramenta chamar (no maximo uma) com base na mensagem, ou nenhuma se a
 mensagem nao se encaixar claramente em nenhum desses casos ou faltar os dados necessarios.
@@ -315,6 +335,15 @@ export async function extractIntent(message: string): Promise<FiadoIntent | null
       return null;
     }
     return { type: "add_team_member", memberName, phone };
+  }
+
+  if (toolUse.name === "member_activity") {
+    const memberName = str(input.member_name);
+    if (!memberName) {
+      logger.warn("member_activity chamado sem member_name valido", { input });
+      return null;
+    }
+    return { type: "member_activity", memberName };
   }
 
   const customerName = str(input.customer_name);

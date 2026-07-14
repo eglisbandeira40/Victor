@@ -14,6 +14,7 @@ import {
   addMerchantMember,
   getMemberName,
   getMemberNamesByPhone,
+  findMemberByName,
 } from "../domain/merchantMembers.js";
 import {
   getOrCreateCustomer,
@@ -29,7 +30,7 @@ import {
   getOverdueCustomersForMerchant,
 } from "../domain/debts.js";
 import { createPayment } from "../domain/payments.js";
-import { getCustomerHistory } from "../domain/history.js";
+import { getCustomerHistory, getMemberActivity } from "../domain/history.js";
 import { getMerchantSummary, formatSummaryMessage } from "../domain/summary.js";
 import { getMonthlyStatement, formatMonthlyStatement } from "../domain/monthlyStatement.js";
 import { OVERDUE_THRESHOLD_DAYS, buildOverdueList, buildCollectionMessage } from "../jobs/weeklyCollectionReminder.js";
@@ -535,6 +536,34 @@ export async function handleInboundMessage(message: WhatsAppInboundMessage): Pro
           `Prontinho ✅ ${intent.memberName} (${formatPhoneDisplay(phone)}) já pode mandar mensagem pro Fiado ` +
             `direto do número dele pra lançar fiado na sua conta.`
         );
+        break;
+      }
+
+      case "member_activity": {
+        const member = await findMemberByName(merchant.id, intent.memberName);
+
+        if (!member) {
+          await sendWhatsAppText(merchantPhone, `Não tenho nenhum funcionário chamado ${intent.memberName} cadastrado.`);
+          break;
+        }
+
+        const activity = await getMemberActivity(merchant.id, member.phone);
+        const displayName = member.name ?? intent.memberName;
+
+        if (activity.length === 0) {
+          await sendWhatsAppText(merchantPhone, `${displayName} ainda não lançou nada.`);
+          break;
+        }
+
+        const lines = activity.map((entry) => {
+          const date = entry.createdAt.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+          const desc = entry.description ? ` (${entry.description})` : "";
+          return entry.type === "debt"
+            ? `${date} — ${entry.customerName}: dívida de ${formatBRL(entry.amountCents)}${desc}`
+            : `${date} — ${entry.customerName}: pagamento de ${formatBRL(entry.amountCents)}`;
+        });
+
+        await sendWhatsAppText(merchantPhone, `🧾 *Lançamentos de ${displayName}*\n\n${lines.join("\n")}`);
         break;
       }
     }

@@ -1,6 +1,16 @@
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { merchantMembers, merchants } from "../db/schema.js";
+
+export async function findMemberByName(merchantId: string, name: string) {
+  const found = await db.query.merchantMembers.findFirst({
+    where: and(
+      eq(merchantMembers.merchantId, merchantId),
+      sql`lower(unaccent(${merchantMembers.name})) = lower(unaccent(${name}))`
+    ),
+  });
+  return found ?? null;
+}
 
 export async function findOwnerMerchantIdByMemberPhone(phone: string): Promise<string | null> {
   const found = await db.query.merchantMembers.findFirst({ where: eq(merchantMembers.phone, phone) });

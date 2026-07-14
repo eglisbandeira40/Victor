@@ -172,6 +172,7 @@ assumem esse papel a partir da próxima migration.
 | `quem está inadimplente?` / `clientes inadimplentes`       | Lista de inadimplentes (7+ dias) com link de cobrança pronto — igual ao alerta semanal, mas sob demanda |
 | `cobrar Zé Carlos`                                         | Link de cobrança pronto só pra esse cliente (não precisa esperar entrar na lista de inadimplentes) |
 | `meu funcionário Carlos vai lançar fiado também, número 11988887777` | Autoriza esse número a lançar fiado direto na conta do comerciante (ver seção "Funcionários autorizados") |
+| `lançamentos do Carlos`                                    | Lista tudo que esse funcionário lançou (dívidas e pagamentos), em qualquer cliente, mais recente primeiro |
 
 ### Funcionários autorizados
 
