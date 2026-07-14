@@ -3,10 +3,14 @@ import {
   getMerchantsWithTrialEndingSoon,
   getAllMerchantsOrdered,
   getMerchantStats,
+  getActiveMerchants,
+  getMonthlyRevenueStats,
   formatRecentMerchantsMessage,
   formatTrialEndingMessage,
   formatAllMerchantsMessage,
   formatMerchantStatsMessage,
+  formatActiveMerchantsMessage,
+  formatMonthlyRevenueMessage,
   NEW_MERCHANT_WINDOW_DAYS,
   TRIAL_ALERT_WINDOW_DAYS,
   type MerchantRow,
@@ -33,6 +37,13 @@ const ADMIN_MENU_SECTIONS: InteractiveListSection[] = [
       },
       { id: "admin_all", title: "Todos os comerciantes", description: "Lista completa com plano e desde quando" },
       { id: "admin_stats", title: "Resumo geral", description: "Quantos em trial, ativo e bloqueado" },
+    ],
+  },
+  {
+    title: "Carteira e faturamento",
+    rows: [
+      { id: "admin_wallet", title: "Carteira de clientes", description: "Comerciantes pagantes (plano ativo)" },
+      { id: "admin_revenue", title: "Faturamento do mês", description: "MRR e novos pagantes esse mês" },
     ],
   },
 ];
@@ -66,6 +77,16 @@ async function handleAdminMenuSelection(adminPhone: string, rowId: string): Prom
     case "admin_stats": {
       const stats = await getMerchantStats();
       await sendWhatsAppText(adminPhone, formatMerchantStatsMessage(stats));
+      return;
+    }
+    case "admin_wallet": {
+      const rows = await getActiveMerchants();
+      await sendWhatsAppText(adminPhone, formatActiveMerchantsMessage(rows));
+      return;
+    }
+    case "admin_revenue": {
+      const stats = await getMonthlyRevenueStats();
+      await sendWhatsAppText(adminPhone, formatMonthlyRevenueMessage(stats));
       return;
     }
     default:

@@ -86,6 +86,7 @@ export async function registerInternalRoutes(app: FastifyInstance) {
           whatsappPhone: m.whatsappPhone,
           plan: m.plan,
           trialEndsAt: m.trialEndsAt,
+          planActivatedAt: m.planActivatedAt,
           createdAt: m.createdAt,
         })),
       });

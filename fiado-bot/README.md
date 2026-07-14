@@ -106,7 +106,8 @@ Ver [`src/db/schema.ts`](./src/db/schema.ts) (Drizzle) e as migrations em [`src/
 (SQL puro, prontas pra colar no console do banco).
 
 - `merchants` — dono do comércio: `whatsapp_phone` (único), `business_name`, `plan`
-  (`trial` | `active` | `blocked`), `trial_ends_at` (7 dias após o cadastro), `pending_action`
+  (`trial` | `active` | `blocked`), `trial_ends_at` (7 dias após o cadastro), `plan_activated_at`
+  (quando virou pagante pela última vez — carteira de clientes / faturamento), `pending_action`
   (jsonb; guarda uma pergunta em aberto do bot pro comerciante, ex: "quantas parcelas?")
 - `merchant_members` — funcionário autorizado a lançar fiado na conta do comerciante: `merchant_id`, `phone`
   (único — não pode ser o mesmo número de outra conta própria nem de outro funcionário), `name`
@@ -158,7 +159,7 @@ Ver [`.env.example`](./.env.example). Resumo:
 ### Banco de dados
 
 Rode as migrations de [`src/db/migrations/`](./src/db/migrations/), em ordem (`0001_init.sql` até
-`0008_created_by_phone.sql`, e o que vier depois), no console/SQL editor do seu Postgres. Assim que houver
+`0009_plan_activated_at.sql`, e o que vier depois), no console/SQL editor do seu Postgres. Assim que houver
 uma `DATABASE_URL` acessível localmente, `npm run db:generate` / `npm run db:migrate` (drizzle-kit)
 assumem esse papel a partir da próxima migration.
 
@@ -258,6 +259,12 @@ desse número abre o menu admin (`sendAdminMenu` em [`src/handlers/adminHandler.
 - **Trials vencendo** — vencem nos próximos 2 dias
 - **Todos os comerciantes** — lista completa, com plano e desde quando
 - **Resumo geral** — quantos em trial, ativo e bloqueado
+- **Carteira de clientes** — comerciantes pagantes (plano ativo) e desde quando pagam
+- **Faturamento do mês** — MRR (ativos × R$29,90) e quantos viraram pagantes nesse mês
+
+O faturamento é calculado em cima do plano único e fixo (não tem controle de pagamento avulso — o Pix
+acontece fora do Fiado, e `/internal/set-plan` grava `plan_activated_at` quando alguém vira `active`).
+"Novos pagantes esse mês" conta quem tem `plan_activated_at` dentro do mês calendário atual.
 
 Além do menu sob demanda, o admin recebe dois avisos automáticos:
 
