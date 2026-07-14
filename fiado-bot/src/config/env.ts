@@ -21,6 +21,10 @@ const envSchema = z.object({
   // Contato de suporte mostrado quando o trial de um comerciante vence.
   // Ex: "wa.me/5511999998888" (WhatsApp) ou "suporte@fiado.app" (e-mail).
   SUPPORT_CONTACT: z.string().default("o suporte do Fiado"),
+
+  // Numero do WhatsApp do admin/dono do Fiado (so digitos, com codigo do pais, sem "+"). Esse numero
+  // tem fluxo proprio (menu admin) e recebe aviso de comerciante novo e de trial vencendo.
+  ADMIN_WHATSAPP_PHONE: z.string().default("5511958762003"),
 });
 
 const parsed = envSchema.safeParse(process.env);

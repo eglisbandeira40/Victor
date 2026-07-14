@@ -2,7 +2,9 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { env } from "../config/env.js";
 import { runWeeklyJobs } from "../jobs/scheduler.js";
 import { runDueDateReminders } from "../jobs/dueDateReminderJob.js";
+import { runAdminTrialAlert } from "../jobs/adminTrialAlertJob.js";
 import { findMerchantByPhone, setMerchantPlan } from "../domain/merchants.js";
+import { getAllMerchantsOrdered } from "../domain/adminStats.js";
 import { logger } from "../utils/logger.js";
 
 const VALID_PLANS = new Set(["trial", "active", "blocked"]);
@@ -44,6 +46,51 @@ export async function registerInternalRoutes(app: FastifyInstance) {
       logger.error("Erro ao rodar lembrete de vencimento manualmente", {
         error: err instanceof Error ? err.message : err,
       });
+      return reply.status(500).send({ ok: false });
+    }
+  });
+
+  app.post("/internal/run-admin-check", async (request: FastifyRequest, reply: FastifyReply) => {
+    const query = request.query as Record<string, string>;
+
+    if (query.token !== env.WHATSAPP_VERIFY_TOKEN) {
+      return reply.status(403).send("Forbidden");
+    }
+
+    try {
+      await runAdminTrialAlert();
+      return reply.send({ ok: true });
+    } catch (err) {
+      logger.error("Erro ao rodar alerta de trials pro admin manualmente", {
+        error: err instanceof Error ? err.message : err,
+      });
+      return reply.status(500).send({ ok: false });
+    }
+  });
+
+  // Lista todos os comerciantes com plano/trial - consulta pontual pra acompanhar fora do WhatsApp.
+  app.get("/internal/merchants", async (request: FastifyRequest, reply: FastifyReply) => {
+    const query = request.query as Record<string, string>;
+
+    if (query.token !== env.WHATSAPP_VERIFY_TOKEN) {
+      return reply.status(403).send("Forbidden");
+    }
+
+    try {
+      const rows = await getAllMerchantsOrdered();
+      return reply.send({
+        ok: true,
+        merchants: rows.map((m) => ({
+          id: m.id,
+          businessName: m.businessName,
+          whatsappPhone: m.whatsappPhone,
+          plan: m.plan,
+          trialEndsAt: m.trialEndsAt,
+          createdAt: m.createdAt,
+        })),
+      });
+    } catch (err) {
+      logger.error("Erro ao listar comerciantes", { error: err instanceof Error ? err.message : err });
       return reply.status(500).send({ ok: false });
     }
   });

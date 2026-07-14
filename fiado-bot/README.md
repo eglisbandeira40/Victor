@@ -44,6 +44,9 @@ Implementado até agora:
 - [x] Trial de 7 dias + bloqueio — comerciante novo ganha 7 dias grátis (`trial_ends_at`); depois disso,
       se ninguém tiver liberado o acesso (`plan = active`), o Fiado para de processar comandos e explica
       como continuar. Liberação hoje é manual, via `/internal/set-plan` (Pix fora do Fiado, você libera)
+- [x] Menu admin (`ADMIN_WHATSAPP_PHONE`) — o dono do Fiado acompanha comerciantes novos, trials
+      vencendo e o resumo geral direto pelo próprio WhatsApp, e recebe aviso automático de cada
+      cadastro novo e de trial acabando
 
 Ainda não implementado (próximas fases, schema já preparado pra isso):
 - [ ] Export CSV / endpoint de visualização de dados
@@ -126,6 +129,8 @@ Ver [`src/db/schema.ts`](./src/db/schema.ts) (Drizzle) e as migrations em [`src/
 | POST   | `/webhook`                    | Recebe mensagens do WhatsApp — o coração do sistema                 |
 | POST   | `/internal/run-weekly-check`  | Dispara os jobs semanais (resumo + cobrança) na hora (`?token=WHATSAPP_VERIFY_TOKEN`), pra teste/depuração |
 | POST   | `/internal/run-due-check`     | Dispara o lembrete diário de vencimento na hora (`?token=WHATSAPP_VERIFY_TOKEN`), pra teste/depuração |
+| POST   | `/internal/run-admin-check`   | Dispara o alerta diário de trials vencendo pro admin na hora (`?token=WHATSAPP_VERIFY_TOKEN`), pra teste/depuração |
+| GET    | `/internal/merchants`         | Lista todos os comerciantes com plano/trial em JSON (`?token=WHATSAPP_VERIFY_TOKEN`), consulta pontual fora do WhatsApp |
 | POST   | `/internal/set-plan`          | Libera/bloqueia um comerciante manualmente (`?token=...&phone=5511999998888&plan=active`), pra depois de confirmar um Pix |
 
 ## Rodando localmente
@@ -148,6 +153,7 @@ Ver [`.env.example`](./.env.example). Resumo:
 - `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN` — Meta for Developers → WhatsApp → API Setup
 - `WHATSAPP_APP_SECRET` — opcional, mas recomendado em produção (valida a assinatura do webhook)
 - `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` — console.anthropic.com
+- `ADMIN_WHATSAPP_PHONE` — número do dono do Fiado (só dígitos, com código do país). Ver seção "Menu admin"
 
 ### Banco de dados
 
@@ -241,6 +247,26 @@ tenta casar com um cliente já cadastrado pelo nome e **sempre pergunta antes de
 
 Essa confirmação existe de propósito: o comerciante pode ter mais de um contato com nome parecido na
 agenda pessoal, e a confirmação evita salvar o telefone errado num cliente do Fiado.
+
+## Menu admin
+
+O número definido em `ADMIN_WHATSAPP_PHONE` tem um fluxo completamente separado do fluxo de
+comerciante — não passa por trial, plano nem cria registro em `merchants`. Qualquer mensagem vinda
+desse número abre o menu admin (`sendAdminMenu` em [`src/handlers/adminHandler.ts`](./src/handlers/adminHandler.ts)):
+
+- **Novos comerciantes** — cadastrados nos últimos 7 dias
+- **Trials vencendo** — vencem nos próximos 2 dias
+- **Todos os comerciantes** — lista completa, com plano e desde quando
+- **Resumo geral** — quantos em trial, ativo e bloqueado
+
+Além do menu sob demanda, o admin recebe dois avisos automáticos:
+
+1. **Comerciante novo** — assim que alguém manda a primeira mensagem pro Fiado (`notifyAdminOfNewMerchant`)
+2. **Trials vencendo** — todo dia às 8h, junto do lembrete de vencimento, se houver algum trial
+   vencendo nos próximos 2 dias ([`adminTrialAlertJob.ts`](./src/jobs/adminTrialAlertJob.ts))
+
+Pra consulta pontual fora do WhatsApp (ex: script, planilha), tem o endpoint
+`GET /internal/merchants?token=...` retornando a mesma lista em JSON.
 
 ## Jobs agendados
 

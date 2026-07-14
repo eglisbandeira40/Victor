@@ -32,6 +32,7 @@ import {
 import { createPayment } from "../domain/payments.js";
 import { getCustomerHistory, getMemberActivity } from "../domain/history.js";
 import { getMerchantSummary, formatSummaryMessage } from "../domain/summary.js";
+import { handleAdminMessage, notifyAdminOfNewMerchant } from "./adminHandler.js";
 import { getMonthlyStatement, formatMonthlyStatement } from "../domain/monthlyStatement.js";
 import { OVERDUE_THRESHOLD_DAYS, buildOverdueList, buildCollectionMessage } from "../jobs/weeklyCollectionReminder.js";
 import { sendWhatsAppText, sendWhatsAppList, type InteractiveListSection } from "../whatsapp/client.js";
@@ -332,6 +333,17 @@ export async function handleInboundMessage(message: WhatsAppInboundMessage): Pro
   await db.insert(processedMessages).values({ waMessageId: message.id }).onConflictDoNothing();
 
   const merchantPhone = message.from;
+
+  if (merchantPhone === env.ADMIN_WHATSAPP_PHONE) {
+    try {
+      await handleAdminMessage(message);
+    } catch (err) {
+      logger.error("Erro ao processar mensagem do admin", { error: err instanceof Error ? err.message : err });
+      await sendWhatsAppText(merchantPhone, ERROR_MESSAGE).catch(() => {});
+    }
+    return;
+  }
+
   const bodyText = message.type === "text" ? message.text?.body?.trim() : undefined;
 
   try {
@@ -357,6 +369,7 @@ export async function handleInboundMessage(message: WhatsAppInboundMessage): Pro
 
     if (isNew) {
       await sendWhatsAppText(merchantPhone, WELCOME_MESSAGE);
+      await notifyAdminOfNewMerchant(merchant);
     }
 
     if (merchant.plan === "blocked") {
