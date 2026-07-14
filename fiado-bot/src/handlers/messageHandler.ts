@@ -34,7 +34,7 @@ import { getCustomerHistory, getMemberActivity } from "../domain/history.js";
 import { getMerchantSummary, formatSummaryMessage } from "../domain/summary.js";
 import { getMonthlyStatement, formatMonthlyStatement } from "../domain/monthlyStatement.js";
 import { OVERDUE_THRESHOLD_DAYS, buildOverdueList, buildCollectionMessage } from "../jobs/weeklyCollectionReminder.js";
-import { sendWhatsAppText } from "../whatsapp/client.js";
+import { sendWhatsAppText, sendWhatsAppList, type InteractiveListSection } from "../whatsapp/client.js";
 import { formatBRL, reaisToCents } from "../utils/currency.js";
 import { normalizePhoneBR, formatPhoneDisplay, buildWhatsAppLink } from "../utils/phone.js";
 import { env } from "../config/env.js";
@@ -44,7 +44,8 @@ import type { WhatsAppInboundMessage, WhatsAppSharedContact } from "../whatsapp/
 const FALLBACK_MESSAGE =
   "Nao entendi 🤔\n" +
   "Me manda assim: *Nome, valor, o que foi*\n" +
-  "Tipo: _Ze Carlos, 45 reais, almoco de hoje_";
+  "Tipo: _Ze Carlos, 45 reais, almoco de hoje_\n\n" +
+  "Ou digita *menu* pra ver tudo que dá pra fazer.";
 
 const ERROR_MESSAGE = "Ops, deu ruim aqui do meu lado 😕 Tenta de novo em instantes.";
 
@@ -55,7 +56,55 @@ const WELCOME_MESSAGE =
   "_Zé Carlos, 45 reais, almoço de hoje_\n\n" +
   "Quando alguém pagar:\n" +
   "_Zé Carlos pagou 20 reais_\n\n" +
-  "Isso já resolve o principal! Vamos nessa 😊";
+  "Isso já resolve o principal! Se quiser ver tudo que dá pra fazer, digita *menu* a qualquer momento. Vamos nessa 😊";
+
+const HELP_TRIGGER_RE =
+  /^(ajuda|menu|comandos?|op(c|ç)(ao|oes|ões|ão)|o que (voc[eê]|vc) faz|o que (eu )?posso (fazer|pedir|perguntar)|help)\b/i;
+
+const MENU_SECTIONS: InteractiveListSection[] = [
+  {
+    title: "Dívidas e pagamentos",
+    rows: [
+      { id: "menu_debt", title: "Anotar dívida", description: "Nome, valor e o que foi" },
+      { id: "menu_payment", title: "Registrar pagamento", description: "Nome do cliente e quanto pagou" },
+      { id: "menu_collect", title: "Cobrar um cliente", description: "Manda o link de cobrança pronto" },
+    ],
+  },
+  {
+    title: "Consultas rápidas",
+    rows: [
+      { id: "menu_debtors", title: "Quem tá devendo", description: "Lista geral de devedores" },
+      { id: "menu_summary", title: "Resumo da semana", description: "Total em aberto e recebido" },
+      { id: "menu_statement", title: "Extrato do mês", description: "Pago e saldo por cliente" },
+      { id: "menu_defaulters", title: "Inadimplentes", description: "Atrasados, com cobrança pronta" },
+    ],
+  },
+  {
+    title: "Equipe",
+    rows: [
+      { id: "menu_team_add", title: "Autorizar funcionário", description: "Pra ele lançar fiado também" },
+      { id: "menu_team_activity", title: "Lançamentos de alguém", description: "Ver o que um funcionário lançou" },
+    ],
+  },
+];
+
+const MENU_INSTRUCTIONS: Record<string, string> = {
+  menu_debt: "Pra anotar uma dívida, manda assim:\n_Zé Carlos, 45 reais, almoço de hoje_",
+  menu_payment: "Pra dar baixa num pagamento, manda assim:\n_Zé Carlos pagou 20 reais_",
+  menu_collect: "Pra cobrar um cliente, manda assim:\n_cobrar Zé Carlos_",
+  menu_team_add:
+    "Pra autorizar um funcionário, manda assim:\n_meu funcionário Carlos vai lançar fiado também, número 11988887777_",
+  menu_team_activity: "Pra ver os lançamentos de alguém, manda assim:\n_lançamentos do Carlos_",
+};
+
+async function sendHelpMenu(merchantPhone: string): Promise<void> {
+  await sendWhatsAppList(merchantPhone, {
+    header: "Fiado — Menu",
+    body: "Toca numa opção. Nas consultas eu já respondo na hora; nas outras, te mostro como pedir.",
+    buttonText: "Ver opções",
+    sections: MENU_SECTIONS,
+  });
+}
 
 function buildTrialEndedMessage(): string {
   return (
@@ -190,6 +239,86 @@ async function handleSharedContact(
   }
 }
 
+async function sendDebtorsList(
+  merchant: { id: string },
+  merchantPhone: string,
+  minAmount?: number
+): Promise<void> {
+  const minCents = minAmount ? reaisToCents(minAmount) : 0;
+  const balances = await getCustomerBalancesForMerchant(merchant.id);
+  const debtors = balances.filter((b) => b.balanceCents > minCents).sort((a, b) => b.balanceCents - a.balanceCents);
+
+  if (debtors.length === 0) {
+    const reply = minAmount ? `Ninguém devendo mais de ${formatBRL(minCents)} no momento 👍` : `Ninguém te deve nada agora 🎉`;
+    await sendWhatsAppText(merchantPhone, reply);
+    return;
+  }
+
+  const lines = debtors.map((d, i) => `${i + 1}) ${d.name} — ${formatBRL(d.balanceCents)}`);
+  const total = debtors.reduce((sum, d) => sum + d.balanceCents, 0);
+
+  await sendWhatsAppText(
+    merchantPhone,
+    `Quem tá devendo:\n\n${lines.join("\n")}\n\nTotal: ${formatBRL(total)} com ${debtors.length} cliente(s)`
+  );
+}
+
+async function sendWeeklySummary(merchant: { id: string }, merchantPhone: string): Promise<void> {
+  const summary = await getMerchantSummary(merchant.id);
+  await sendWhatsAppText(merchantPhone, formatSummaryMessage(summary));
+}
+
+async function sendMonthlyStatement(merchant: { id: string }, merchantPhone: string): Promise<void> {
+  const statement = await getMonthlyStatement(merchant.id);
+  await sendWhatsAppText(merchantPhone, formatMonthlyStatement(statement));
+}
+
+async function sendDefaultersList(
+  merchant: { id: string; businessName: string | null },
+  merchantPhone: string
+): Promise<void> {
+  const overdue = await getOverdueCustomersForMerchant(merchant.id, OVERDUE_THRESHOLD_DAYS);
+
+  if (overdue.length === 0) {
+    await sendWhatsAppText(
+      merchantPhone,
+      `Nenhum cliente inadimplente (mais de ${OVERDUE_THRESHOLD_DAYS} dias) no momento 👍`
+    );
+    return;
+  }
+
+  await sendWhatsAppText(merchantPhone, buildOverdueList(merchant.businessName, overdue));
+}
+
+async function handleMenuSelection(
+  merchant: { id: string; businessName: string | null },
+  merchantPhone: string,
+  rowId: string
+): Promise<void> {
+  const instruction = MENU_INSTRUCTIONS[rowId];
+  if (instruction) {
+    await sendWhatsAppText(merchantPhone, instruction);
+    return;
+  }
+
+  switch (rowId) {
+    case "menu_debtors":
+      await sendDebtorsList(merchant, merchantPhone);
+      return;
+    case "menu_summary":
+      await sendWeeklySummary(merchant, merchantPhone);
+      return;
+    case "menu_statement":
+      await sendMonthlyStatement(merchant, merchantPhone);
+      return;
+    case "menu_defaulters":
+      await sendDefaultersList(merchant, merchantPhone);
+      return;
+    default:
+      await sendWhatsAppText(merchantPhone, FALLBACK_MESSAGE);
+  }
+}
+
 export async function handleInboundMessage(message: WhatsAppInboundMessage): Promise<void> {
   const alreadyProcessed = await db.query.processedMessages.findFirst({
     where: eq(processedMessages.waMessageId, message.id),
@@ -256,8 +385,18 @@ export async function handleInboundMessage(message: WhatsAppInboundMessage): Pro
       return;
     }
 
+    if (message.type === "interactive" && message.interactive?.list_reply) {
+      await handleMenuSelection(merchant, merchantPhone, message.interactive.list_reply.id);
+      return;
+    }
+
     if (!bodyText) {
       await sendWhatsAppText(merchantPhone, FALLBACK_MESSAGE);
+      return;
+    }
+
+    if (HELP_TRIGGER_RE.test(bodyText.trim())) {
+      await sendHelpMenu(merchantPhone);
       return;
     }
 
@@ -427,52 +566,22 @@ export async function handleInboundMessage(message: WhatsAppInboundMessage): Pro
       }
 
       case "query_debtors": {
-        const minCents = intent.minAmount ? reaisToCents(intent.minAmount) : 0;
-        const balances = await getCustomerBalancesForMerchant(merchant.id);
-        const debtors = balances.filter((b) => b.balanceCents > minCents).sort((a, b) => b.balanceCents - a.balanceCents);
-
-        if (debtors.length === 0) {
-          const reply = intent.minAmount
-            ? `Ninguém devendo mais de ${formatBRL(minCents)} no momento 👍`
-            : `Ninguém te deve nada agora 🎉`;
-          await sendWhatsAppText(merchantPhone, reply);
-          break;
-        }
-
-        const lines = debtors.map((d, i) => `${i + 1}) ${d.name} — ${formatBRL(d.balanceCents)}`);
-        const total = debtors.reduce((sum, d) => sum + d.balanceCents, 0);
-
-        await sendWhatsAppText(
-          merchantPhone,
-          `Quem tá devendo:\n\n${lines.join("\n")}\n\nTotal: ${formatBRL(total)} com ${debtors.length} cliente(s)`
-        );
+        await sendDebtorsList(merchant, merchantPhone, intent.minAmount);
         break;
       }
 
       case "weekly_summary": {
-        const summary = await getMerchantSummary(merchant.id);
-        await sendWhatsAppText(merchantPhone, formatSummaryMessage(summary));
+        await sendWeeklySummary(merchant, merchantPhone);
         break;
       }
 
       case "monthly_statement": {
-        const statement = await getMonthlyStatement(merchant.id);
-        await sendWhatsAppText(merchantPhone, formatMonthlyStatement(statement));
+        await sendMonthlyStatement(merchant, merchantPhone);
         break;
       }
 
       case "list_defaulters": {
-        const overdue = await getOverdueCustomersForMerchant(merchant.id, OVERDUE_THRESHOLD_DAYS);
-
-        if (overdue.length === 0) {
-          await sendWhatsAppText(
-            merchantPhone,
-            `Nenhum cliente inadimplente (mais de ${OVERDUE_THRESHOLD_DAYS} dias) no momento 👍`
-          );
-          break;
-        }
-
-        await sendWhatsAppText(merchantPhone, buildOverdueList(merchant.businessName, overdue));
+        await sendDefaultersList(merchant, merchantPhone);
         break;
       }
 

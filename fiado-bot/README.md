@@ -173,6 +173,24 @@ assumem esse papel a partir da próxima migration.
 | `cobrar Zé Carlos`                                         | Link de cobrança pronto só pra esse cliente (não precisa esperar entrar na lista de inadimplentes) |
 | `meu funcionário Carlos vai lançar fiado também, número 11988887777` | Autoriza esse número a lançar fiado direto na conta do comerciante (ver seção "Funcionários autorizados") |
 | `lançamentos do Carlos`                                    | Lista tudo que esse funcionário lançou (dívidas e pagamentos), em qualquer cliente, mais recente primeiro |
+| `menu` / `ajuda` / `comandos` / `o que você faz`           | Abre o menu interativo (ver seção "Menu de ajuda") |
+
+### Menu de ajuda
+
+Pra quem não lembra o que dá pra pedir, `menu` (ou `ajuda`, `comandos`, `o que você faz`) dispara uma
+**lista interativa nativa do WhatsApp** (`sendWhatsAppList` em [`src/whatsapp/client.ts`](./src/whatsapp/client.ts))
+— um botão que abre um menu de toque, sem digitar nada. É diferente de mandar um texto explicativo: o
+comerciante literalmente toca na opção.
+
+- Nas **consultas** (quem tá devendo, resumo da semana, extrato do mês, inadimplentes), tocar já executa
+  a ação na hora — mesmo código dos comandos por texto (`sendDebtorsList`, `sendWeeklySummary`,
+  `sendMonthlyStatement`, `sendDefaultersList` em `messageHandler.ts`).
+- Nas ações que **precisam de mais dados** (anotar dívida, registrar pagamento, cobrar cliente, autorizar
+  funcionário, ver lançamentos de alguém), tocar mostra o exemplo de frase pra digitar — o Fiado continua
+  100% baseado em linguagem natural, o menu é só uma porta de entrada pra quem não sabe por onde começar.
+
+A resposta do toque chega no webhook como `type: "interactive"` com `interactive.list_reply.id` — ver
+`handleMenuSelection` em `messageHandler.ts`.
 
 ### Funcionários autorizados
 

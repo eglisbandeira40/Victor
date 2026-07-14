@@ -28,4 +28,10 @@ export interface WhatsAppInboundMessage {
   text?: { body: string };
   /** Presente quando type === "contacts": cartao(oes) de contato compartilhado pelo comerciante. */
   contacts?: WhatsAppSharedContact[];
+  /** Presente quando type === "interactive": resposta a um menu/lista/botao enviado pelo bot. */
+  interactive?: {
+    type: "list_reply" | "button_reply";
+    list_reply?: { id: string; title: string; description?: string };
+    button_reply?: { id: string; title: string };
+  };
 }

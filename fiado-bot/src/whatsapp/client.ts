@@ -70,6 +70,48 @@ export async function sendWhatsAppTemplate(
   }
 }
 
+export interface InteractiveListSection {
+  title: string;
+  rows: Array<{ id: string; title: string; description?: string }>;
+}
+
+/**
+ * Manda uma lista interativa nativa do WhatsApp (menu de toque, sem precisar digitar nada).
+ * Limites da Cloud API: ate 10 linhas no total, titulo de linha ate 24 caracteres, descricao ate 72.
+ */
+export async function sendWhatsAppList(
+  to: string,
+  params: { header?: string; body: string; footer?: string; buttonText: string; sections: InteractiveListSection[] }
+): Promise<void> {
+  const url = `https://graph.facebook.com/${GRAPH_API_VERSION}/${env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.WHATSAPP_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to,
+      type: "interactive",
+      interactive: {
+        type: "list",
+        ...(params.header ? { header: { type: "text", text: params.header } } : {}),
+        body: { text: params.body },
+        ...(params.footer ? { footer: { text: params.footer } } : {}),
+        action: { button: params.buttonText, sections: params.sections },
+      },
+    }),
+  });
+
+  if (!res.ok) {
+    const errorBody = await res.text();
+    logger.error("Falha ao enviar lista interativa no WhatsApp", { status: res.status, errorBody, to });
+    throw new Error(`WhatsApp list send failed: ${res.status}`);
+  }
+}
+
 /**
  * Manda uma mensagem proativa (iniciada pela empresa, fora de resposta a um usuario): usa o Message
  * Template configurado se houver, senao cai pra texto livre (so funciona dentro da janela de 24h).
