@@ -45,7 +45,7 @@ import type { WhatsAppInboundMessage, WhatsAppSharedContact } from "../whatsapp/
 const FALLBACK_MESSAGE =
   "Nao entendi 🤔\n" +
   "Me manda assim: *Nome, valor, o que foi*\n" +
-  "Tipo: _Ze Carlos, 45 reais, almoco de hoje_\n\n" +
+  "Tipo: _Ze Carlos, 45,00, almoco de hoje_\n\n" +
   "Ou digita *menu* pra ver tudo que dá pra fazer.";
 
 const ERROR_MESSAGE = "Ops, deu ruim aqui do meu lado 😕 Tenta de novo em instantes.";
@@ -54,9 +54,9 @@ const WELCOME_MESSAGE =
   "👋 Oi! Eu sou o *Fiado* 🧾\n" +
   "Vou te ajudar a controlar o fiado dos seus clientes direto aqui no WhatsApp — sem app, sem planilha.\n\n" +
   "Pra anotar uma dívida, é só mandar assim:\n" +
-  "_Zé Carlos, 45 reais, almoço de hoje_\n\n" +
+  "_Zé Carlos, 45,00, almoço de hoje_\n\n" +
   "Quando alguém pagar:\n" +
-  "_Zé Carlos pagou 20 reais_\n\n" +
+  "_Zé Carlos pagou 20,00_\n\n" +
   "Isso já resolve o principal! Se quiser ver tudo que dá pra fazer, digita *menu* a qualquer momento. Vamos nessa 😊";
 
 const HELP_TRIGGER_RE =
@@ -90,8 +90,8 @@ const MENU_SECTIONS: InteractiveListSection[] = [
 ];
 
 const MENU_INSTRUCTIONS: Record<string, string> = {
-  menu_debt: "Pra anotar uma dívida, manda assim:\n_Zé Carlos, 45 reais, almoço de hoje_",
-  menu_payment: "Pra dar baixa num pagamento, manda assim:\n_Zé Carlos pagou 20 reais_",
+  menu_debt: "Pra anotar uma dívida, manda assim:\n_Zé Carlos, 45,00, almoço de hoje_",
+  menu_payment: "Pra dar baixa num pagamento, manda assim:\n_Zé Carlos pagou 20,00_",
   menu_collect: "Pra cobrar um cliente, manda assim:\n_cobrar Zé Carlos_",
   menu_team_add:
     "Pra autorizar um funcionário, manda assim:\n_meu funcionário Carlos vai lançar fiado também, número 11988887777_",
