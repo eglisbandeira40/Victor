@@ -47,6 +47,10 @@ Implementado até agora:
 
 Ainda não implementado (próximas fases, schema já preparado pra isso):
 - [ ] Export CSV / endpoint de visualização de dados
+- [ ] Comando por voz — receber áudio do WhatsApp, transcrever e resumir pro comerciante confirmar antes
+      de executar. O Claude não transcreve áudio nativamente, então precisa de um serviço externo de
+      speech-to-text (ex: Whisper da OpenAI) só pra esse passo; o texto transcrito segue pro mesmo
+      `extractIntent()` que já trata mensagem digitada
 
 ## Arquitetura
 
