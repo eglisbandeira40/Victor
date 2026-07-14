@@ -2,13 +2,19 @@ import { and, eq, gt, sql } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { payments } from "../db/schema.js";
 
-export async function createPayment(params: { customerId: string; merchantId: string; amountCents: number }) {
+export async function createPayment(params: {
+  customerId: string;
+  merchantId: string;
+  amountCents: number;
+  createdByPhone?: string;
+}) {
   const [created] = await db
     .insert(payments)
     .values({
       customerId: params.customerId,
       merchantId: params.merchantId,
       amountCents: params.amountCents,
+      createdByPhone: params.createdByPhone,
     })
     .returning();
 

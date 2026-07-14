@@ -8,6 +8,7 @@ export async function createDebt(params: {
   amountCents: number;
   description?: string;
   dueDate?: string;
+  createdByPhone?: string;
 }) {
   const [created] = await db
     .insert(debts)
@@ -17,6 +18,7 @@ export async function createDebt(params: {
       amountCents: params.amountCents,
       description: params.description,
       dueDate: params.dueDate,
+      createdByPhone: params.createdByPhone,
     })
     .returning();
 

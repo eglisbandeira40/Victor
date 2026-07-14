@@ -9,7 +9,12 @@ import {
   findMerchantByPhone,
   findMerchantById,
 } from "../domain/merchants.js";
-import { findOwnerMerchantIdByMemberPhone, addMerchantMember } from "../domain/merchantMembers.js";
+import {
+  findOwnerMerchantIdByMemberPhone,
+  addMerchantMember,
+  getMemberName,
+  getMemberNamesByPhone,
+} from "../domain/merchantMembers.js";
 import {
   getOrCreateCustomer,
   findCustomerByName,
@@ -56,6 +61,13 @@ function buildTrialEndedMessage(): string {
     "⏰ Seu período de teste do Fiado acabou.\n\n" +
     `Pra continuar usando, entre em contato: ${env.SUPPORT_CONTACT}. Assim que confirmar o pagamento, libero seu acesso de novo.`
   );
+}
+
+/** Sufixo " (lançado por Fulano)" quando quem mandou a mensagem nao e o numero dono da conta. */
+async function actorSuffix(merchant: { whatsappPhone: string }, actorPhone: string): Promise<string> {
+  if (actorPhone === merchant.whatsappPhone) return "";
+  const name = await getMemberName(actorPhone);
+  return ` _(lançado por ${name ?? "funcionário"})_`;
 }
 
 function parseInstallmentCount(text: string): number | null {
@@ -266,6 +278,7 @@ export async function handleInboundMessage(message: WhatsAppInboundMessage): Pro
           amountCents,
           description: intent.description,
           dueDate: intent.dueDate,
+          createdByPhone: merchantPhone,
         });
 
         const balanceCents = await getCustomerBalanceCents(customer.id, customer.balanceResetAt);
@@ -278,7 +291,8 @@ export async function handleInboundMessage(message: WhatsAppInboundMessage): Pro
         await sendWhatsAppText(
           merchantPhone,
           `Anotado ✅ ${customer.name} deve ${formatBRL(amountCents)}${descriptionPart}${dueDatePart}. ` +
-            `No total ${firstName} te deve ${formatBRL(balanceCents)}`
+            `No total ${firstName} te deve ${formatBRL(balanceCents)}` +
+            (await actorSuffix(merchant, merchantPhone))
         );
         break;
       }
@@ -296,7 +310,12 @@ export async function handleInboundMessage(message: WhatsAppInboundMessage): Pro
         const customer = await getOrCreateCustomer(merchant.id, intent.customerName);
         const amountCents = reaisToCents(intent.amount);
 
-        await createPayment({ customerId: customer.id, merchantId: merchant.id, amountCents });
+        await createPayment({
+          customerId: customer.id,
+          merchantId: merchant.id,
+          amountCents,
+          createdByPhone: merchantPhone,
+        });
 
         const balanceCents = await getCustomerBalanceCents(customer.id, customer.balanceResetAt);
         const firstName = customer.name.split(" ")[0];
@@ -306,7 +325,7 @@ export async function handleInboundMessage(message: WhatsAppInboundMessage): Pro
             ? `Recebido ✅ ${customer.name} pagou ${formatBRL(amountCents)}. Tá quitado! 🎉`
             : `Recebido ✅ ${customer.name} pagou ${formatBRL(amountCents)}. Agora ${firstName} te deve ${formatBRL(balanceCents)}`;
 
-        await sendWhatsAppText(merchantPhone, reply);
+        await sendWhatsAppText(merchantPhone, reply + (await actorSuffix(merchant, merchantPhone)));
         break;
       }
 
@@ -363,13 +382,20 @@ export async function handleInboundMessage(message: WhatsAppInboundMessage): Pro
           break;
         }
 
+        const memberNames = await getMemberNamesByPhone(merchant.id);
+        const lancadoPor = (phone: string | null) => {
+          if (!phone || phone === merchant.whatsappPhone) return "";
+          return ` — lançado por ${memberNames.get(phone) ?? "funcionário"}`;
+        };
+
         const lines = history.map((entry) => {
           const date = entry.createdAt.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+          const quem = lancadoPor(entry.createdByPhone);
           if (entry.type === "debt") {
             const desc = entry.description ? ` (${entry.description})` : "";
-            return `${date} — Dívida: ${formatBRL(entry.amountCents)}${desc}`;
+            return `${date} — Dívida: ${formatBRL(entry.amountCents)}${desc}${quem}`;
           }
-          return `${date} — Pagamento: ${formatBRL(entry.amountCents)}`;
+          return `${date} — Pagamento: ${formatBRL(entry.amountCents)}${quem}`;
         });
 
         const balanceCents = await getCustomerBalanceCents(customer.id, customer.balanceResetAt);

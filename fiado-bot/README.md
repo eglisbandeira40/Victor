@@ -107,8 +107,10 @@ Ver [`src/db/schema.ts`](./src/db/schema.ts) (Drizzle) e as migrations em [`src/
   (corte de "conta arquivada" — dívidas/pagamentos antes disso não contam mais pro saldo), `merchant_id`;
   único por `(merchant_id, lower(name))`
 - `debts` — dívida: `customer_id`, `merchant_id`, `amount_cents`, `description`, `due_date` (opcional),
-  `due_reminder_sent_at` (controla o lembrete diário pra não repetir), `created_at`
-- `payments` — pagamento: `customer_id`, `merchant_id`, `amount_cents`, `note`, `created_at`
+  `due_reminder_sent_at` (controla o lembrete diário pra não repetir), `created_by_phone` (quem lançou —
+  dono ou funcionário), `created_at`
+- `payments` — pagamento: `customer_id`, `merchant_id`, `amount_cents`, `note`, `created_by_phone`,
+  `created_at`
 - `processed_messages` — dedup de retries do webhook (`wa_message_id`)
 
 ## Endpoints
@@ -146,7 +148,7 @@ Ver [`.env.example`](./.env.example). Resumo:
 ### Banco de dados
 
 Rode as migrations de [`src/db/migrations/`](./src/db/migrations/), em ordem (`0001_init.sql` até
-`0007_merchant_members.sql`, e o que vier depois), no console/SQL editor do seu Postgres. Assim que houver
+`0008_created_by_phone.sql`, e o que vier depois), no console/SQL editor do seu Postgres. Assim que houver
 uma `DATABASE_URL` acessível localmente, `npm run db:generate` / `npm run db:migrate` (drizzle-kit)
 assumem esse papel a partir da próxima migration.
 
@@ -184,6 +186,11 @@ Limitações da v1 (de propósito, pra manter simples):
 - Qualquer pessoa autorizada (dono ou funcionário) pode adicionar outro funcionário — não tem hierarquia
   de permissão ainda.
 - Não tem comando pra remover funcionário ainda (fazer direto no banco, tabela `merchant_members`).
+
+Toda dívida e pagamento guarda `created_by_phone` (o número de quem mandou a mensagem). Quando não é o
+número do dono, a confirmação e o histórico (`histórico do Zé Carlos`) mostram *"lançado por Fulano"*
+usando o nome salvo em `merchant_members`. Lançamentos antigos (antes dessa migration) não têm essa
+informação e aparecem sem atribuição, como se fossem do dono.
 
 ## Fluxo implementado (cadastro de dívida)
 

@@ -73,6 +73,7 @@ export const debts = pgTable("debts", {
   description: text("description"),
   dueDate: date("due_date"),
   dueReminderSentAt: timestamp("due_reminder_sent_at", { withTimezone: true }),
+  createdByPhone: text("created_by_phone"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   index("debts_customer_id_idx").on(table.customerId),
@@ -86,6 +87,7 @@ export const payments = pgTable("payments", {
   merchantId: uuid("merchant_id").notNull().references(() => merchants.id, { onDelete: "cascade" }),
   amountCents: integer("amount_cents").notNull(),
   note: text("note"),
+  createdByPhone: text("created_by_phone"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   index("payments_customer_id_idx").on(table.customerId),

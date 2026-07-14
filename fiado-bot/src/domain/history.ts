@@ -7,6 +7,7 @@ export interface HistoryEntry {
   amountCents: number;
   description: string | null;
   createdAt: Date;
+  createdByPhone: string | null;
 }
 
 /** Ultimas `limit` movimentacoes (dividas e pagamentos) de um cliente, da mais antiga pra mais recente. */
@@ -16,11 +17,12 @@ export async function getCustomerHistory(customerId: string, limit = 15): Promis
     amount_cents: number;
     description: string | null;
     created_at: string;
+    created_by_phone: string | null;
   }>(sql`
-    (select 'debt' as type, amount_cents, description, created_at
+    (select 'debt' as type, amount_cents, description, created_at, created_by_phone
      from ${debts} where customer_id = ${customerId})
     union all
-    (select 'payment' as type, amount_cents, note as description, created_at
+    (select 'payment' as type, amount_cents, note as description, created_at, created_by_phone
      from ${payments} where customer_id = ${customerId})
     order by created_at desc
     limit ${limit}
@@ -32,6 +34,7 @@ export async function getCustomerHistory(customerId: string, limit = 15): Promis
       amountCents: row.amount_cents,
       description: row.description,
       createdAt: new Date(row.created_at),
+      createdByPhone: row.created_by_phone,
     }))
     .reverse();
 }
