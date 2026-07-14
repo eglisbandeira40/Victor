@@ -319,6 +319,10 @@ Business Manager → **WhatsApp Manager → Message Templates → Create Templat
 (são avisos de conta/serviço, não marketing) e idioma **Portuguese (BR)**. Depois de aprovado (geralmente
 minutos a poucas horas), coloca o nome exato do template nas variáveis de ambiente correspondentes.
 
+Os 3 templates abaixo já foram submetidos via API (`POST /message_templates`) e estão com assinatura
+padronizada "— Fiado 🧾" no final — a Meta não deixa variável `{{n}}` no início nem no fim do texto, e
+exige uma proporção mínima de texto por variável (por isso o `due_reminder` tem mais texto ao redor).
+
 **`fiado_weekly_summary`** → `WHATSAPP_TEMPLATE_WEEKLY_SUMMARY`
 ```
 📊 Resumo do Fiado
@@ -326,6 +330,8 @@ minutos a poucas horas), coloca o nome exato do template nas variáveis de ambie
 Total em aberto: {{1}}
 Clientes devendo: {{2}}
 Recebido essa semana: {{3}}
+
+— Fiado 🧾
 ```
 
 **`fiado_collection_alert`** → `WHATSAPP_TEMPLATE_COLLECTION_ALERT`
@@ -335,12 +341,18 @@ Recebido essa semana: {{3}}
 {{1}}
 
 Total parado: {{2}}
+
+— Fiado 🧾
 ```
 
 **`fiado_due_reminder`** → `WHATSAPP_TEMPLATE_DUE_REMINDER`
 ```
-🔔 A dívida de {{1}} vence hoje: {{2}}
-{{3}}
+🔔 Lembrete de vencimento
+
+A dívida de {{1}} vence hoje, no valor de {{2}}.
+Link pronto pra cobrar: {{3}}
+
+— Fiado 🧾
 ```
 
 Nos exemplos de teste que a Meta pede na hora de criar o template, pode usar valores fictícios (ex:
