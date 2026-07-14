@@ -47,7 +47,7 @@ const WELCOME_MESSAGE =
 function buildTrialEndedMessage(): string {
   return (
     "⏰ Seu período de teste do Fiado acabou.\n\n" +
-    `Pra continuar usando, ${env.SUPPORT_CONTACT}. Assim que confirmar, libero seu acesso de novo.`
+    `Pra continuar usando, entre em contato: ${env.SUPPORT_CONTACT}. Assim que confirmar o pagamento, libero seu acesso de novo.`
   );
 }
 
