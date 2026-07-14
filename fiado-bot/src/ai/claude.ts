@@ -16,7 +16,8 @@ export type FiadoIntent =
   | { type: "weekly_summary" }
   | { type: "monthly_statement" }
   | { type: "list_defaulters" }
-  | { type: "collect_customer"; customerName: string };
+  | { type: "collect_customer"; customerName: string }
+  | { type: "add_team_member"; memberName: string; phone: string };
 
 const RECORD_DEBT_TOOL: Anthropic.Tool = {
   name: "record_debt",
@@ -45,9 +46,10 @@ const RECORD_DEBT_TOOL: Anthropic.Tool = {
 const REGISTER_CUSTOMER_TOOL: Anthropic.Tool = {
   name: "register_customer",
   description:
-    "Cadastra um cliente ou atualiza o telefone dele. So chame quando a mensagem comecar com algo como " +
-    "'cadastrar', 'cadastro de', 'telefone do/da', ou claramente estiver informando o telefone de um " +
-    "cliente pelo nome, sem mencionar valor de divida ou pagamento.",
+    "Cadastra um CLIENTE (quem compra fiado) ou atualiza o telefone dele. So chame quando a mensagem comecar " +
+    "com algo como 'cadastrar', 'cadastro de', 'telefone do/da', ou claramente estiver informando o telefone " +
+    "de um cliente pelo nome, sem mencionar valor de divida ou pagamento. Nao chame se a mensagem mencionar " +
+    "'funcionario', 'colaborador', 'equipe' ou similar (isso e add_team_member).",
   input_schema: {
     type: "object",
     properties: {
@@ -192,6 +194,23 @@ const COLLECT_CUSTOMER_TOOL: Anthropic.Tool = {
   },
 };
 
+const ADD_TEAM_MEMBER_TOOL: Anthropic.Tool = {
+  name: "add_team_member",
+  description:
+    "Autoriza um FUNCIONARIO/colaborador do comerciante a usar o Fiado a partir do proprio numero de " +
+    "WhatsApp dele, lancando fiado direto na conta do comerciante. So chame quando a mensagem mencionar " +
+    "claramente 'funcionario', 'colaborador', 'atendente', 'equipe' ou equivalente, junto com nome e " +
+    "telefone dessa pessoa. Nao chame pra cadastro de CLIENTE (isso e register_customer).",
+  input_schema: {
+    type: "object",
+    properties: {
+      member_name: { type: "string", description: "Nome do funcionario/colaborador" },
+      phone: { type: "string", description: "Telefone do funcionario/colaborador" },
+    },
+    required: ["member_name", "phone"],
+  },
+};
+
 const ALL_TOOLS = [
   RECORD_DEBT_TOOL,
   REGISTER_CUSTOMER_TOOL,
@@ -205,6 +224,7 @@ const ALL_TOOLS = [
   MONTHLY_STATEMENT_TOOL,
   LIST_DEFAULTERS_TOOL,
   COLLECT_CUSTOMER_TOOL,
+  ADD_TEAM_MEMBER_TOOL,
 ];
 
 function buildSystemPrompt(): string {
@@ -233,6 +253,7 @@ O comerciante manda mensagens curtas e informais em portugues, tipo:
 "extrato do mes" ou "extrato mensal" -> extrato mensal do negocio (pago vs falta, por cliente)
 "quem esta inadimplente?" ou "clientes inadimplentes" -> lista de inadimplentes com cobranca pronta
 "cobrar Ze Carlos" ou "cobra a Suellen Bandeira" -> cobranca pronta de UM cliente especifico
+"meu funcionario Carlos vai lancar fiado tambem, numero 11988887777" -> autorizar funcionario
 
 Sua unica tarefa e decidir qual ferramenta chamar (no maximo uma) com base na mensagem, ou nenhuma se a
 mensagem nao se encaixar claramente em nenhum desses casos ou faltar os dados necessarios.
@@ -284,6 +305,16 @@ export async function extractIntent(message: string): Promise<FiadoIntent | null
 
   if (toolUse.name === "list_defaulters") {
     return { type: "list_defaulters" };
+  }
+
+  if (toolUse.name === "add_team_member") {
+    const memberName = str(input.member_name);
+    const phone = str(input.phone);
+    if (!memberName || !phone) {
+      logger.warn("add_team_member chamado sem member_name/phone validos", { input });
+      return null;
+    }
+    return { type: "add_team_member", memberName, phone };
   }
 
   const customerName = str(input.customer_name);

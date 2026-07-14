@@ -39,6 +39,18 @@ export const merchants = pgTable("merchants", {
   uniqueIndex("merchants_whatsapp_phone_key").on(table.whatsappPhone),
 ]);
 
+// Funcionarios autorizados a lancar fiado na conta do comerciante, a partir do proprio numero deles.
+export const merchantMembers = pgTable("merchant_members", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  merchantId: uuid("merchant_id").notNull().references(() => merchants.id, { onDelete: "cascade" }),
+  phone: text("phone").notNull(),
+  name: text("name"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("merchant_members_phone_key").on(table.phone),
+  index("merchant_members_merchant_id_idx").on(table.merchantId),
+]);
+
 export const customers = pgTable("customers", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   merchantId: uuid("merchant_id").notNull().references(() => merchants.id, { onDelete: "cascade" }),

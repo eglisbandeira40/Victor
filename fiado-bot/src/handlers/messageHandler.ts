@@ -2,7 +2,14 @@ import { eq } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { processedMessages, type PendingAction } from "../db/schema.js";
 import { extractIntent } from "../ai/claude.js";
-import { getOrCreateMerchant, setPendingAction, setMerchantPlan } from "../domain/merchants.js";
+import {
+  getOrCreateMerchant,
+  setPendingAction,
+  setMerchantPlan,
+  findMerchantByPhone,
+  findMerchantById,
+} from "../domain/merchants.js";
+import { findOwnerMerchantIdByMemberPhone, addMerchantMember } from "../domain/merchantMembers.js";
 import {
   getOrCreateCustomer,
   findCustomerByName,
@@ -186,7 +193,25 @@ export async function handleInboundMessage(message: WhatsAppInboundMessage): Pro
   const bodyText = message.type === "text" ? message.text?.body?.trim() : undefined;
 
   try {
-    const { merchant, isNew } = await getOrCreateMerchant(merchantPhone);
+    let merchant = await findMerchantByPhone(merchantPhone);
+    let isNew = false;
+
+    if (!merchant) {
+      const ownerMerchantId = await findOwnerMerchantIdByMemberPhone(merchantPhone);
+      if (ownerMerchantId) {
+        merchant = await findMerchantById(ownerMerchantId);
+      }
+    }
+
+    if (!merchant) {
+      const result = await getOrCreateMerchant(merchantPhone);
+      merchant = result.merchant;
+      isNew = result.isNew;
+    }
+
+    if (!merchant) {
+      throw new Error(`Nao foi possivel resolver merchant para ${merchantPhone}`);
+    }
 
     if (isNew) {
       await sendWhatsAppText(merchantPhone, WELCOME_MESSAGE);
@@ -455,6 +480,34 @@ export async function handleInboundMessage(message: WhatsAppInboundMessage): Pro
         await sendWhatsAppText(
           merchantPhone,
           `💰 *Cobrança de ${customer.name}*\n\nSaldo: ${formatBRL(balanceCents)}\n👉 ${link}`
+        );
+        break;
+      }
+
+      case "add_team_member": {
+        const phone = normalizePhoneBR(intent.phone);
+        const result = await addMerchantMember(merchant.id, phone, intent.memberName);
+
+        if (result.status === "own_account") {
+          await sendWhatsAppText(
+            merchantPhone,
+            `Esse número já tem uma conta própria no Fiado, não dá pra usar como funcionário. Confere se é o número certo.`
+          );
+          break;
+        }
+
+        if (result.status === "already_member") {
+          const reply = result.sameMerchant
+            ? `${intent.memberName} já está autorizado a lançar fiado na sua conta 👍`
+            : `Esse número já está vinculado a outro comércio no Fiado.`;
+          await sendWhatsAppText(merchantPhone, reply);
+          break;
+        }
+
+        await sendWhatsAppText(
+          merchantPhone,
+          `Prontinho ✅ ${intent.memberName} (${formatPhoneDisplay(phone)}) já pode mandar mensagem pro Fiado ` +
+            `direto do número dele pra lançar fiado na sua conta.`
         );
         break;
       }

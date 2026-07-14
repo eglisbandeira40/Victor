@@ -101,6 +101,8 @@ Ver [`src/db/schema.ts`](./src/db/schema.ts) (Drizzle) e as migrations em [`src/
 - `merchants` — dono do comércio: `whatsapp_phone` (único), `business_name`, `plan`
   (`trial` | `active` | `blocked`), `trial_ends_at` (7 dias após o cadastro), `pending_action`
   (jsonb; guarda uma pergunta em aberto do bot pro comerciante, ex: "quantas parcelas?")
+- `merchant_members` — funcionário autorizado a lançar fiado na conta do comerciante: `merchant_id`, `phone`
+  (único — não pode ser o mesmo número de outra conta própria nem de outro funcionário), `name`
 - `customers` — cliente do comerciante: `name`, `phone`, `installments`, `balance_reset_at`
   (corte de "conta arquivada" — dívidas/pagamentos antes disso não contam mais pro saldo), `merchant_id`;
   único por `(merchant_id, lower(name))`
@@ -144,7 +146,7 @@ Ver [`.env.example`](./.env.example). Resumo:
 ### Banco de dados
 
 Rode as migrations de [`src/db/migrations/`](./src/db/migrations/), em ordem (`0001_init.sql` até
-`0005_debt_due_date.sql`, e o que vier depois), no console/SQL editor do seu Postgres. Assim que houver
+`0007_merchant_members.sql`, e o que vier depois), no console/SQL editor do seu Postgres. Assim que houver
 uma `DATABASE_URL` acessível localmente, `npm run db:generate` / `npm run db:migrate` (drizzle-kit)
 assumem esse papel a partir da próxima migration.
 
@@ -167,6 +169,21 @@ assumem esse papel a partir da próxima migration.
 | `extrato do mês` / `extrato mensal`                        | Quanto cada cliente pagou esse mês e quanto ainda falta, com totais |
 | `quem está inadimplente?` / `clientes inadimplentes`       | Lista de inadimplentes (7+ dias) com link de cobrança pronto — igual ao alerta semanal, mas sob demanda |
 | `cobrar Zé Carlos`                                         | Link de cobrança pronto só pra esse cliente (não precisa esperar entrar na lista de inadimplentes) |
+| `meu funcionário Carlos vai lançar fiado também, número 11988887777` | Autoriza esse número a lançar fiado direto na conta do comerciante (ver seção "Funcionários autorizados") |
+
+### Funcionários autorizados
+
+Um comerciante pode autorizar o número de WhatsApp de um funcionário a lançar fiado na mesma conta —
+sem precisar de grupo (a API do WhatsApp Business não suporta bem automação em grupo pra esse caso de uso).
+Cada funcionário manda mensagem individualmente, do próprio número, e o Fiado reconhece que ele está
+autorizado e aplica tudo na conta do dono (mesmos clientes, mesmo saldo, mesmo trial/plano).
+
+Limitações da v1 (de propósito, pra manter simples):
+- Um número só pode ser funcionário de **uma** conta por vez.
+- Um número que já tem conta própria no Fiado não pode virar funcionário de outra conta.
+- Qualquer pessoa autorizada (dono ou funcionário) pode adicionar outro funcionário — não tem hierarquia
+  de permissão ainda.
+- Não tem comando pra remover funcionário ainda (fazer direto no banco, tabela `merchant_members`).
 
 ## Fluxo implementado (cadastro de dívida)
 
