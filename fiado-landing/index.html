@@ -4,12 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Fiado — o caderninho de fiado, dentro do WhatsApp</title>
-  <meta name="description" content="Anote dívida, dê baixa em pagamento e cobre clientes sem sair do WhatsApp. Sem app, sem planilha, sem caderno. R$29,90/mês, sem limite de clientes." />
+  <meta name="description" content="Anote dívida, dê baixa em pagamento, consulte saldo e cobre clientes sem sair do WhatsApp. Sem app, sem planilha, sem caderno. R$29,90/mês, sem limite de clientes." />
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Fiado — o caderninho de fiado, dentro do WhatsApp" />
-  <meta property="og:description" content="Anote dívida, dê baixa em pagamento e cobre clientes sem sair do WhatsApp. Sem app, sem planilha, sem caderno. R$29,90/mês, sem limite de clientes." />
+  <meta property="og:description" content="Anote dívida, dê baixa em pagamento, consulte saldo e cobre clientes sem sair do WhatsApp. Sem app, sem planilha, sem caderno. R$29,90/mês, sem limite de clientes." />
   <meta property="og:image" content="social-share.jpg" />
   <meta property="og:image:width" content="1024" />
   <meta property="og:image:height" content="672" />
@@ -69,6 +69,16 @@
         <circle cx="9.9" cy="7.8" r="3.3" fill="none" stroke="currentColor" stroke-width="1.6"/>
         <path d="M15.8 5.9a3.3 3.3 0 010 6.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
         <path d="M19.5 20v-1.7a3.8 3.8 0 00-2.3-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-chart" viewBox="0 0 24 24">
+        <rect x="3.5" y="12.5" width="4" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <rect x="10" y="7.5" width="4" height="13" rx="1" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <rect x="16.5" y="3.5" width="4" height="17" rx="1" fill="none" stroke="currentColor" stroke-width="1.6"/>
+      </symbol>
+      <symbol id="icon-archive" viewBox="0 0 24 24">
+        <rect x="3" y="4.5" width="18" height="4" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <path d="M4.5 8.5V18a2 2 0 002 2h11a2 2 0 002-2V8.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+        <path d="M10 13h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
       </symbol>
     </defs>
   </svg>
@@ -211,6 +221,11 @@
         <p>"Zé Carlos pagou 20 reais" e pronto — o saldo atualiza na hora.</p>
       </div>
       <div class="feature">
+        <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><use href="#icon-chart"></use></svg></div>
+        <h3>Consulta e resumo na hora</h3>
+        <p>"Quanto o Zé me deve?", "quem tá devendo?", "resumo da semana" — pergunta em português normal e recebe a resposta na hora, sem abrir planilha.</p>
+      </div>
+      <div class="feature">
         <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><use href="#icon-bell"></use></svg></div>
         <h3>Lembrete de vencimento</h3>
         <p>Marcou uma data pra dívida vencer? O Fiado avisa você no dia certo, automaticamente.</p>
@@ -228,12 +243,17 @@
       <div class="feature">
         <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><use href="#icon-send"></use></svg></div>
         <h3>Cobrança pronta</h3>
-        <p>Um toque abre o WhatsApp do cliente com a mensagem de cobrança já escrita. Você revisa e envia.</p>
+        <p>Peça a cobrança de um cliente ou a lista inteira de inadimplentes — o Fiado já devolve o link do WhatsApp com a mensagem escrita. Você revisa e envia.</p>
       </div>
       <div class="feature">
         <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><use href="#icon-users"></use></svg></div>
         <h3>Funcionário também lança</h3>
         <p>Autoriza o número de um funcionário e ele lança fiado direto do celular dele, na mesma conta — sem dividir senha nem WhatsApp.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><use href="#icon-archive"></use></svg></div>
+        <h3>Fechar e arquivar conta</h3>
+        <p>Cliente quitou tudo? "Fechar a conta do Zé Carlos" arquiva o histórico antigo e deixa ele pronto pra uma conta nova, sem perder nada.</p>
       </div>
     </div>
   </section>
