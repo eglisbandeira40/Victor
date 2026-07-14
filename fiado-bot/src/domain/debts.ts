@@ -1,4 +1,4 @@
-import { and, eq, gt, sql } from "drizzle-orm";
+import { and, desc, eq, gt, sql } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { customers, debts, payments } from "../db/schema.js";
 
@@ -106,6 +106,26 @@ export async function getOverdueCustomersForMerchant(
     balanceCents: row.balance_cents,
     daysOverdue: row.days_overdue,
   }));
+}
+
+export interface LastDebt {
+  id: string;
+  amountCents: number;
+  description: string | null;
+  createdAt: Date;
+}
+
+/** Divida mais recente de um cliente (qualquer data), pra correcao de valor digitado errado. */
+export async function getLastDebtForCustomer(customerId: string): Promise<LastDebt | null> {
+  const found = await db.query.debts.findFirst({
+    where: eq(debts.customerId, customerId),
+    orderBy: desc(debts.createdAt),
+  });
+  return found ?? null;
+}
+
+export async function updateDebtAmount(debtId: string, amountCents: number): Promise<void> {
+  await db.update(debts).set({ amountCents }).where(eq(debts.id, debtId));
 }
 
 export interface CustomerBalance {

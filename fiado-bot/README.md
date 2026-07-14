@@ -7,7 +7,7 @@ Bot de WhatsApp para donos de mercadinho, padaria e bar controlarem quem deve o 
 Implementado até agora:
 
 - [x] Webhook do WhatsApp Business Cloud API (verificação + recebimento de mensagens)
-- [x] Cadastro de dívida por linguagem natural ("Zé Carlos, 45 reais, o almoço de hoje")
+- [x] Cadastro de dívida por linguagem natural ("Zé Carlos, 45,00, o almoço de hoje")
 - [x] Criação automática de comerciante (na primeira mensagem) e cliente (na primeira dívida), com
       mensagem de boas-vindas explicando o básico só na primeira vez
 - [x] Soma ao saldo existente do cliente quando ele já existe
@@ -16,7 +16,7 @@ Implementado até agora:
 - [x] Reconhecimento de contato compartilhado do WhatsApp — o comerciante compartilha o cartão de
       contato do cliente direto na conversa, o Fiado lê nome+telefone e **pergunta antes de salvar**
       (evita salvar o telefone errado quando há homônimos na lista de contatos)
-- [x] Baixa de pagamento ("Zé Carlos pagou 20 reais")
+- [x] Baixa de pagamento ("Zé Carlos pagou 20,00")
 - [x] Fechar conta ("fechar a conta do Zé Carlos") — pergunta em quantas vezes vai pagar (informativo;
       cada parcela é dada baixa normalmente com "Zé pagou X")
 - [x] Excluir/arquivar conta antiga ("excluir a conta do Zé Carlos") — só libera depois de quitada;
@@ -37,7 +37,7 @@ Implementado até agora:
       cobrança pronta do alerta semanal, mas disparada na hora, quando o comerciante quiser)
 - [x] Cobrança de um cliente específico — "cobrar Zé Carlos" gera o link `wa.me` de cobrança pronto só
       pra esse cliente, sem precisar esperar ele entrar na lista de inadimplentes
-- [x] Data de vencimento por dívida — "Zé Carlos, 45 reais, almoço, vence dia 20" (ou "vence em 10
+- [x] Data de vencimento por dívida — "Zé Carlos, 45,00, almoço, vence dia 20" (ou "vence em 10
       dias", "vence sexta") salva o vencimento junto com a dívida
 - [x] Lembrete diário de vencimento (job agendado, 8h) — no dia em que uma dívida vence, o Fiado avisa
       o comerciante com o valor e o link `wa.me` de cobrança pronto, uma única vez por dívida
@@ -47,6 +47,8 @@ Implementado até agora:
 - [x] Menu admin (`ADMIN_WHATSAPP_PHONE`) — o dono do Fiado acompanha comerciantes novos, trials
       vencendo e o resumo geral direto pelo próprio WhatsApp, e recebe aviso automático de cada
       cadastro novo e de trial acabando
+- [x] Corrigir valor do último lançamento — "errei, o certo do Zé Carlos é 30" ajusta o valor da
+      dívida/pagamento mais recente desse cliente, sem precisar excluir e lançar de novo
 
 Ainda não implementado (próximas fases, schema já preparado pra isso):
 - [ ] Export CSV / endpoint de visualização de dados
@@ -86,7 +88,7 @@ Um único número de WhatsApp Business atende todos os comerciantes (multi-tenan
 - **Drizzle ORM**: type-safe, sem "magia" de ORM pesado, migrations em SQL puro por baixo — bom pra
   quem vai manter o projeto sozinho e quer entender exatamente o que roda no banco.
 - **Supabase (Postgres gerenciado)**: grátis pra começar, sem precisar operar banco.
-- **Claude com tool use**: em vez de regex/NLP caseiro pra interpretar "Zé Carlos, 45 reais, almoço",
+- **Claude com tool use**: em vez de regex/NLP caseiro pra interpretar "Zé Carlos, 45,00, almoço",
   a IA extrai os campos estruturados (nome, valor, descrição) com uma única chamada de ferramenta.
   Modelo default é `claude-haiku-4-5` (rápido e barato) — dá pra trocar via `ANTHROPIC_MODEL`.
 
@@ -169,12 +171,13 @@ assumem esse papel a partir da próxima migration.
 
 | Mensagem (exemplo)                                     | O que faz |
 |----------------------------------------------------------|-----------|
-| `Zé Carlos, 45 reais, o almoço de hoje`                   | Registra dívida, soma ao saldo do cliente |
-| `Zé Carlos, 45 reais, almoço, vence dia 20`               | Igual acima, mas guarda a data de vencimento dessa dívida |
+| `Zé Carlos, 45,00, o almoço de hoje`                      | Registra dívida, soma ao saldo do cliente (aceita `2`, `45`, `45,00` ou `45.50`) |
+| `Zé Carlos, 45,00, almoço, vence dia 20`                  | Igual acima, mas guarda a data de vencimento dessa dívida |
 | `cadastrar Zé Carlos, telefone 11987654321`               | Cadastra/atualiza o telefone |
 | `telefone do Zé Carlos, 11987654321`                      | Mesma coisa, forma curta |
 | *(compartilhar um contato do WhatsApp)*                   | Fiado lê nome+telefone do cartão e pergunta antes de salvar |
-| `Zé Carlos pagou 20 reais`                                | Dá baixa no pagamento |
+| `Zé Carlos pagou 20,00`                                   | Dá baixa no pagamento |
+| `errei, o certo do Zé Carlos é 30`                        | Corrige o valor do lançamento (dívida ou pagamento) mais recente desse cliente |
 | `fechar a conta do Zé Carlos`                             | Pergunta em quantas vezes vai pagar (fica aguardando a resposta) |
 | `excluir a conta do Zé Carlos`                            | Arquiva o histórico antigo (só depois de quitado) |
 | `histórico do Zé Carlos`                                  | Lista as últimas dívidas/pagamentos dele e o saldo atual |
@@ -226,7 +229,7 @@ informação e aparecem sem atribuição, como se fossem do dono.
 
 ## Fluxo implementado (cadastro de dívida)
 
-1. Comerciante manda: `"Zé Carlos, 45 reais, o almoço de hoje"`
+1. Comerciante manda: `"Zé Carlos, 45,00, o almoço de hoje"`
 2. Webhook recebe, valida assinatura, checa idempotência
 3. Resolve (ou cria) o `merchant` pelo telefone de quem mandou a mensagem
 4. Claude decide se é um registro de dívida e extrai `customer_name`, `amount`, `description`

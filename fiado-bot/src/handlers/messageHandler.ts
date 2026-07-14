@@ -28,8 +28,10 @@ import {
   getCustomerBalanceCents,
   getCustomerBalancesForMerchant,
   getOverdueCustomersForMerchant,
+  getLastDebtForCustomer,
+  updateDebtAmount,
 } from "../domain/debts.js";
-import { createPayment } from "../domain/payments.js";
+import { createPayment, getLastPaymentForCustomer, updatePaymentAmount } from "../domain/payments.js";
 import { getCustomerHistory, getMemberActivity } from "../domain/history.js";
 import { getMerchantSummary, formatSummaryMessage } from "../domain/summary.js";
 import { handleAdminMessage, notifyAdminOfNewMerchant } from "./adminHandler.js";
@@ -69,6 +71,7 @@ const MENU_SECTIONS: InteractiveListSection[] = [
       { id: "menu_debt", title: "Anotar dívida", description: "Nome, valor e o que foi" },
       { id: "menu_payment", title: "Registrar pagamento", description: "Nome do cliente e quanto pagou" },
       { id: "menu_collect", title: "Cobrar um cliente", description: "Manda o link de cobrança pronto" },
+      { id: "menu_correct", title: "Corrigir valor", description: "Ajusta o último lançamento errado" },
     ],
   },
   {
@@ -93,6 +96,7 @@ const MENU_INSTRUCTIONS: Record<string, string> = {
   menu_debt: "Pra anotar uma dívida, manda assim:\n_Zé Carlos, 45,00, almoço de hoje_",
   menu_payment: "Pra dar baixa num pagamento, manda assim:\n_Zé Carlos pagou 20,00_",
   menu_collect: "Pra cobrar um cliente, manda assim:\n_cobrar Zé Carlos_",
+  menu_correct: "Errou o valor do último lançamento? Manda assim:\n_errei, o certo do Zé Carlos é 30_",
   menu_team_add:
     "Pra autorizar um funcionário, manda assim:\n_meu funcionário Carlos vai lançar fiado também, número 11988887777_",
   menu_team_activity: "Pra ver os lançamentos de alguém, manda assim:\n_lançamentos do Carlos_",
@@ -629,6 +633,44 @@ export async function handleInboundMessage(message: WhatsAppInboundMessage): Pro
         await sendWhatsAppText(
           merchantPhone,
           `💰 *Cobrança de ${customer.name}*\n\nSaldo: ${formatBRL(balanceCents)}\n👉 ${link}`
+        );
+        break;
+      }
+
+      case "correct_last_entry": {
+        const customer = await findCustomerByName(merchant.id, intent.customerName);
+
+        if (!customer) {
+          await sendWhatsAppText(merchantPhone, `Não tenho nenhum cliente chamado ${intent.customerName} cadastrado.`);
+          break;
+        }
+
+        const [lastDebt, lastPayment] = await Promise.all([
+          getLastDebtForCustomer(customer.id),
+          getLastPaymentForCustomer(customer.id),
+        ]);
+
+        if (!lastDebt && !lastPayment) {
+          await sendWhatsAppText(merchantPhone, `Não tem nenhum lançamento de ${customer.name} pra corrigir.`);
+          break;
+        }
+
+        const correctingDebt = !lastPayment || (lastDebt && lastDebt.createdAt >= lastPayment.createdAt);
+        const newAmountCents = reaisToCents(intent.correctAmount);
+
+        if (correctingDebt && lastDebt) {
+          await updateDebtAmount(lastDebt.id, newAmountCents);
+        } else if (lastPayment) {
+          await updatePaymentAmount(lastPayment.id, newAmountCents);
+        }
+
+        const balanceCents = await getCustomerBalanceCents(customer.id, customer.balanceResetAt);
+        const tipo = correctingDebt ? "Dívida" : "Pagamento";
+
+        await sendWhatsAppText(
+          merchantPhone,
+          `Corrigido ✅ ${tipo} de ${customer.name} agora é ${formatBRL(newAmountCents)}. ` +
+            `Saldo atual: ${formatBRL(balanceCents)}`
         );
         break;
       }

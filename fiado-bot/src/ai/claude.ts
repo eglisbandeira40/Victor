@@ -18,7 +18,8 @@ export type FiadoIntent =
   | { type: "list_defaulters" }
   | { type: "collect_customer"; customerName: string }
   | { type: "add_team_member"; memberName: string; phone: string }
-  | { type: "member_activity"; memberName: string };
+  | { type: "member_activity"; memberName: string }
+  | { type: "correct_last_entry"; customerName: string; correctAmount: number };
 
 const RECORD_DEBT_TOOL: Anthropic.Tool = {
   name: "record_debt",
@@ -30,7 +31,10 @@ const RECORD_DEBT_TOOL: Anthropic.Tool = {
     type: "object",
     properties: {
       customer_name: { type: "string", description: "Nome do cliente que ficou devendo" },
-      amount: { type: "number", description: "Valor da divida em reais (ex: 45.5 para R$ 45,50)" },
+      amount: {
+        type: "number",
+        description: "Valor da divida em reais (ex: 2 para R$ 2,00, 45.5 para R$ 45,50) - aceita numero inteiro ou com centavos",
+      },
       description: { type: "string", description: "O que foi comprado/consumido, se mencionado" },
       due_date: {
         type: "string",
@@ -70,7 +74,10 @@ const REGISTER_PAYMENT_TOOL: Anthropic.Tool = {
     type: "object",
     properties: {
       customer_name: { type: "string", description: "Nome do cliente que pagou" },
-      amount: { type: "number", description: "Valor pago em reais (ex: 20 para R$ 20,00)" },
+      amount: {
+        type: "number",
+        description: "Valor pago em reais (ex: 4 para R$ 4,00, 20.5 para R$ 20,50) - aceita numero inteiro ou com centavos",
+      },
     },
     required: ["customer_name", "amount"],
   },
@@ -229,6 +236,25 @@ const MEMBER_ACTIVITY_TOOL: Anthropic.Tool = {
   },
 };
 
+const CORRECT_LAST_ENTRY_TOOL: Anthropic.Tool = {
+  name: "correct_last_entry",
+  description:
+    "Corrige o VALOR do lancamento (divida ou pagamento) MAIS RECENTE de um cliente, quando o comerciante " +
+    "digitou o valor errado por engano. So chame quando a mensagem disser claramente que houve um erro e " +
+    "informar o valor certo, por exemplo 'errei, o certo do Ze Carlos e 50', 'corrige o valor do Ze pra 30', " +
+    "'era 12 e nao 21, do Ze Carlos', 'o valor certo da Maria e 8'. Nao chame pra registrar uma divida ou " +
+    "pagamento NOVO (isso e record_debt ou register_payment) - so quando for claramente uma correcao do " +
+    "ultimo lancamento.",
+  input_schema: {
+    type: "object",
+    properties: {
+      customer_name: { type: "string", description: "Nome do cliente cujo ultimo lancamento sera corrigido" },
+      correct_amount: { type: "number", description: "Valor correto em reais (ex: 8 para R$ 8,00, 45.5 para R$ 45,50)" },
+    },
+    required: ["customer_name", "correct_amount"],
+  },
+};
+
 const ALL_TOOLS = [
   RECORD_DEBT_TOOL,
   REGISTER_CUSTOMER_TOOL,
@@ -244,6 +270,7 @@ const ALL_TOOLS = [
   COLLECT_CUSTOMER_TOOL,
   ADD_TEAM_MEMBER_TOOL,
   MEMBER_ACTIVITY_TOOL,
+  CORRECT_LAST_ENTRY_TOOL,
 ];
 
 function buildSystemPrompt(): string {
@@ -258,11 +285,12 @@ Hoje e ${todayIso} (${weekday}). Use essa data como referencia pra calcular data
 nas mensagens (ex: "vence em 10 dias", "vence sexta").
 
 O comerciante manda mensagens curtas e informais em portugues, tipo:
-"Ze Carlos, 45 reais, o almoco de hoje" -> nova divida
-"Ze Carlos, 45 reais, almoco, vence dia 20" -> nova divida com data de vencimento
+"Ze Carlos, 45,00, o almoco de hoje" -> nova divida
+"Ze Carlos, 2, agua" -> nova divida com valor inteiro (2 = R$ 2,00, nao R$ 0,02 nem R$ 200,00)
+"Ze Carlos, 45,00, almoco, vence dia 20" -> nova divida com data de vencimento
 "cadastrar Ze Carlos, telefone 11987654321" -> cadastro/atualizacao de cliente
 "telefone do Ze Carlos, 11987654321" -> cadastro/atualizacao de cliente
-"Ze Carlos pagou 20 reais" -> pagamento
+"Ze Carlos pagou 20,00" ou "Ze Carlos pagou 4" -> pagamento
 "fechar a conta do Ze Carlos" -> fechar conta
 "excluir a conta do Ze Carlos" -> arquivar conta antiga
 "historico do Ze Carlos" -> historico de compras
@@ -274,6 +302,10 @@ O comerciante manda mensagens curtas e informais em portugues, tipo:
 "cobrar Ze Carlos" ou "cobra a Suellen Bandeira" -> cobranca pronta de UM cliente especifico
 "meu funcionario Carlos vai lancar fiado tambem, numero 11988887777" -> autorizar funcionario
 "lancamentos do Carlos" ou "o que o Carlos lancou" -> atividade de UM funcionario especifico
+"errei, o certo do Ze Carlos e 50" ou "corrige o valor do Ze pra 30" -> corrigir valor do ultimo lancamento
+
+Numeros digitados sozinhos (sem "reais" ou virgula) sao sempre valor inteiro em reais: "2" = R$ 2,00,
+nunca R$ 0,02. So use casas decimais se a mensagem tiver virgula ou ponto (ex: "45,50" ou "45.5").
 
 Sua unica tarefa e decidir qual ferramenta chamar (no maximo uma) com base na mensagem, ou nenhuma se a
 mensagem nao se encaixar claramente em nenhum desses casos ou faltar os dados necessarios.
@@ -384,6 +416,11 @@ export async function extractIntent(message: string): Promise<FiadoIntent | null
       return { type: "query_balance", customerName };
     case "collect_customer":
       return { type: "collect_customer", customerName };
+    case "correct_last_entry": {
+      const correctAmount = typeof input.correct_amount === "number" ? input.correct_amount : undefined;
+      if (!correctAmount || correctAmount <= 0) return null;
+      return { type: "correct_last_entry", customerName, correctAmount };
+    }
     default:
       return null;
   }
