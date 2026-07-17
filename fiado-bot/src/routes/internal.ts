@@ -5,9 +5,10 @@ import { runDueDateReminders } from "../jobs/dueDateReminderJob.js";
 import { runAdminTrialAlert } from "../jobs/adminTrialAlertJob.js";
 import { findMerchantByPhone, setMerchantPlan } from "../domain/merchants.js";
 import { getAllMerchantsOrdered } from "../domain/adminStats.js";
+import { sendWhatsAppText } from "../whatsapp/client.js";
 import { logger } from "../utils/logger.js";
 
-const VALID_PLANS = new Set(["trial", "active", "blocked"]);
+const VALID_PLANS = new Set(["trial", "active", "lifetime", "blocked"]);
 
 /**
  * Rotas internas pra disparar os jobs agendados manualmente (teste/depuracao), sem esperar o cron.
@@ -96,8 +97,8 @@ export async function registerInternalRoutes(app: FastifyInstance) {
     }
   });
 
-  // Libera/bloqueia um comerciante manualmente (ex: depois de confirmar um Pix). phone no formato
-  // que o WhatsApp manda (ex: 5511987654321, sem "+"). plan: trial | active | blocked.
+  // Libera/bloqueia um comerciante manualmente (ex: depois de confirmar um Pix, ou plano vitalicio).
+  // phone no formato que o WhatsApp manda (ex: 5511987654321, sem "+"). plan: trial | active | lifetime | blocked.
   app.post("/internal/set-plan", async (request: FastifyRequest, reply: FastifyReply) => {
     const query = request.query as Record<string, string>;
 
@@ -106,7 +107,7 @@ export async function registerInternalRoutes(app: FastifyInstance) {
     }
 
     if (!query.phone || !query.plan || !VALID_PLANS.has(query.plan)) {
-      return reply.status(400).send({ ok: false, error: "informe ?phone=...&plan=trial|active|blocked" });
+      return reply.status(400).send({ ok: false, error: "informe ?phone=...&plan=trial|active|lifetime|blocked" });
     }
 
     try {
@@ -119,6 +120,30 @@ export async function registerInternalRoutes(app: FastifyInstance) {
       return reply.send({ ok: true, merchantId: merchant.id, plan: query.plan });
     } catch (err) {
       logger.error("Erro ao definir plano manualmente", { error: err instanceof Error ? err.message : err });
+      return reply.status(500).send({ ok: false });
+    }
+  });
+
+  // Manda uma mensagem avulsa de texto pra um numero (ex: avisar sobre plano vitalicio, suporte pontual).
+  // phone no formato que o WhatsApp manda (ex: 5511987654321, sem "+"). Texto vai no body (JSON: {"text": "..."}).
+  app.post("/internal/send-message", async (request: FastifyRequest, reply: FastifyReply) => {
+    const query = request.query as Record<string, string>;
+
+    if (query.token !== env.WHATSAPP_VERIFY_TOKEN) {
+      return reply.status(403).send("Forbidden");
+    }
+
+    const body = request.body as { text?: string } | undefined;
+
+    if (!query.phone || !body?.text) {
+      return reply.status(400).send({ ok: false, error: "informe ?phone=... e body JSON {\"text\": \"...\"}" });
+    }
+
+    try {
+      await sendWhatsAppText(query.phone, body.text);
+      return reply.send({ ok: true });
+    } catch (err) {
+      logger.error("Erro ao mandar mensagem avulsa", { error: err instanceof Error ? err.message : err });
       return reply.status(500).send({ ok: false });
     }
   });

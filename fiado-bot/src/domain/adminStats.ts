@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, lte } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { merchants } from "../db/schema.js";
 import { formatPhoneDisplay } from "../utils/phone.js";
@@ -34,10 +34,18 @@ export async function getAllMerchantsOrdered(): Promise<MerchantRow[]> {
   return db.query.merchants.findMany({ orderBy: desc(merchants.createdAt) });
 }
 
-/** Carteira de clientes: comerciantes com plano ativo (pagantes) agora, do mais recente pro mais antigo. */
+/** Comerciantes pagantes (plano ativo) agora - usado pro calculo de MRR/faturamento, nao inclui vitalicio. */
 export async function getActiveMerchants(): Promise<MerchantRow[]> {
   return db.query.merchants.findMany({
     where: eq(merchants.plan, "active"),
+    orderBy: desc(merchants.planActivatedAt),
+  });
+}
+
+/** Carteira de clientes: pagantes + vitalicios (toda a base fora de trial/bloqueado), mais recente primeiro. */
+export async function getPortfolioMerchants(): Promise<MerchantRow[]> {
+  return db.query.merchants.findMany({
+    where: inArray(merchants.plan, ["active", "lifetime"]),
     orderBy: desc(merchants.planActivatedAt),
   });
 }
@@ -71,17 +79,19 @@ export async function getMonthlyRevenueStats(): Promise<MonthlyRevenueStats> {
 export interface MerchantStats {
   trial: number;
   active: number;
+  lifetime: number;
   blocked: number;
   total: number;
 }
 
 export async function getMerchantStats(): Promise<MerchantStats> {
   const rows = await db.query.merchants.findMany({ columns: { plan: true } });
-  const stats: MerchantStats = { trial: 0, active: 0, blocked: 0, total: rows.length };
+  const stats: MerchantStats = { trial: 0, active: 0, lifetime: 0, blocked: 0, total: rows.length };
 
   for (const row of rows) {
     if (row.plan === "trial") stats.trial++;
     else if (row.plan === "active") stats.active++;
+    else if (row.plan === "lifetime") stats.lifetime++;
     else if (row.plan === "blocked") stats.blocked++;
   }
 
@@ -90,6 +100,7 @@ export async function getMerchantStats(): Promise<MerchantStats> {
 
 function planLabel(plan: string): string {
   if (plan === "active") return "✅ Ativo";
+  if (plan === "lifetime") return "♾️ Vitalício";
   if (plan === "blocked") return "🔒 Bloqueado";
   return "🕐 Trial";
 }
@@ -136,13 +147,14 @@ export function formatMerchantStatsMessage(stats: MerchantStats): string {
     `📊 *Resumo geral do Fiado*\n\n` +
     `🕐 Trial: ${stats.trial}\n` +
     `✅ Ativo: ${stats.active}\n` +
+    `♾️ Vitalício: ${stats.lifetime}\n` +
     `🔒 Bloqueado: ${stats.blocked}\n\n` +
     `Total: ${stats.total} comerciante(s)`
   );
 }
 
 export function formatActiveMerchantsMessage(rows: MerchantRow[]): string {
-  if (rows.length === 0) return "Nenhum comerciante pagante (ativo) no momento.";
+  if (rows.length === 0) return "Nenhum comerciante na carteira (ativo/vitalício) no momento.";
 
   const lines = rows.map((m, i) => {
     const name = m.businessName ?? "(sem nome)";
@@ -150,10 +162,11 @@ export function formatActiveMerchantsMessage(rows: MerchantRow[]): string {
     const since = m.planActivatedAt
       ? m.planActivatedAt.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" })
       : "—";
-    return `${i + 1}) ${name} — ${phone}\nPagante desde ${since}`;
+    const situacao = m.plan === "lifetime" ? "Vitalício desde" : "Pagante desde";
+    return `${i + 1}) ${name} — ${phone}\n${situacao} ${since}`;
   });
 
-  return `💼 *Carteira de clientes (${rows.length} ativo(s))*\n\n${lines.join("\n\n")}`;
+  return `💼 *Carteira de clientes (${rows.length})*\n\n${lines.join("\n\n")}`;
 }
 
 export function formatMonthlyRevenueMessage(stats: MonthlyRevenueStats): string {

@@ -49,8 +49,8 @@ export async function findMerchantById(id: string) {
   return found ?? null;
 }
 
-/** plan: "trial" | "active" | "blocked". Vira "active" grava plan_activated_at (carteira/faturamento). */
+/** plan: "trial" | "active" | "lifetime" | "blocked". Vira "active"/"lifetime" grava plan_activated_at (carteira/faturamento). */
 export async function setMerchantPlan(merchantId: string, plan: string) {
-  const extra = plan === "active" ? { planActivatedAt: new Date() } : {};
+  const extra = plan === "active" || plan === "lifetime" ? { planActivatedAt: new Date() } : {};
   await db.update(merchants).set({ plan, updatedAt: new Date(), ...extra }).where(eq(merchants.id, merchantId));
 }

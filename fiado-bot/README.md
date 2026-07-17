@@ -110,8 +110,9 @@ Ver [`src/db/schema.ts`](./src/db/schema.ts) (Drizzle) e as migrations em [`src/
 (SQL puro, prontas pra colar no console do banco).
 
 - `merchants` — dono do comércio: `whatsapp_phone` (único), `business_name`, `plan`
-  (`trial` | `active` | `blocked`), `trial_ends_at` (7 dias após o cadastro), `plan_activated_at`
-  (quando virou pagante pela última vez — carteira de clientes / faturamento), `pending_action`
+  (`trial` | `active` | `lifetime` | `blocked` — `lifetime` nunca bloqueia e fica fora do cálculo de MRR/faturamento,
+  mas conta na carteira de clientes), `trial_ends_at` (7 dias após o cadastro), `plan_activated_at`
+  (quando virou pagante/vitalício pela última vez — carteira de clientes / faturamento), `pending_action`
   (jsonb; guarda uma pergunta em aberto do bot pro comerciante, ex: "quantas parcelas?")
 - `merchant_members` — funcionário autorizado a lançar fiado na conta do comerciante: `merchant_id`, `phone`
   (único — não pode ser o mesmo número de outra conta própria nem de outro funcionário), `name`
@@ -136,7 +137,8 @@ Ver [`src/db/schema.ts`](./src/db/schema.ts) (Drizzle) e as migrations em [`src/
 | POST   | `/internal/run-due-check`     | Dispara o lembrete diário de vencimento na hora (`?token=WHATSAPP_VERIFY_TOKEN`), pra teste/depuração |
 | POST   | `/internal/run-admin-check`   | Dispara o alerta diário de trials vencendo pro admin na hora (`?token=WHATSAPP_VERIFY_TOKEN`), pra teste/depuração |
 | GET    | `/internal/merchants`         | Lista todos os comerciantes com plano/trial em JSON (`?token=WHATSAPP_VERIFY_TOKEN`), consulta pontual fora do WhatsApp |
-| POST   | `/internal/set-plan`          | Libera/bloqueia um comerciante manualmente (`?token=...&phone=5511999998888&plan=active`), pra depois de confirmar um Pix |
+| POST   | `/internal/set-plan`          | Libera/bloqueia/marca vitalício um comerciante manualmente (`?token=...&phone=5511999998888&plan=trial\|active\|lifetime\|blocked`) |
+| POST   | `/internal/send-message`      | Manda uma mensagem de texto avulsa pra um número (`?token=...&phone=5511999998888`, body JSON `{"text":"..."}`) |
 
 ## Rodando localmente
 

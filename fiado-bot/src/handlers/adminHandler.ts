@@ -3,7 +3,7 @@ import {
   getMerchantsWithTrialEndingSoon,
   getAllMerchantsOrdered,
   getMerchantStats,
-  getActiveMerchants,
+  getPortfolioMerchants,
   getMonthlyRevenueStats,
   formatRecentMerchantsMessage,
   formatTrialEndingMessage,
@@ -80,7 +80,7 @@ async function handleAdminMenuSelection(adminPhone: string, rowId: string): Prom
       return;
     }
     case "admin_wallet": {
-      const rows = await getActiveMerchants();
+      const rows = await getPortfolioMerchants();
       await sendWhatsAppText(adminPhone, formatActiveMerchantsMessage(rows));
       return;
     }
