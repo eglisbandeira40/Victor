@@ -34,16 +34,22 @@ export async function registerWebhookRoutes(app: FastifyInstance) {
     reply.status(200).send("EVENT_RECEIVED");
 
     const payload = request.body as WhatsAppWebhookPayload;
-    const messages = payload.entry?.flatMap((entry) =>
-      entry.changes.flatMap((change) => change.value.messages ?? [])
-    ) ?? [];
 
-    for (const message of messages) {
-      handleInboundMessage(message).catch((err) => {
-        logger.error("Erro nao tratado ao processar mensagem inbound", {
-          error: err instanceof Error ? err.message : err,
-        });
-      });
+    for (const entry of payload.entry ?? []) {
+      for (const change of entry.changes) {
+        // `contacts` traz o nome de exibicao do WhatsApp de quem mandou - usado pra preencher o
+        // business_name do comerciante sem ele precisar fazer nada (ver handleInboundMessage).
+        const profileNames = new Map((change.value.contacts ?? []).map((c) => [c.wa_id, c.profile.name]));
+
+        for (const message of change.value.messages ?? []) {
+          const profileName = profileNames.get(message.from);
+          handleInboundMessage(message, profileName).catch((err) => {
+            logger.error("Erro nao tratado ao processar mensagem inbound", {
+              error: err instanceof Error ? err.message : err,
+            });
+          });
+        }
+      }
     }
   });
 }

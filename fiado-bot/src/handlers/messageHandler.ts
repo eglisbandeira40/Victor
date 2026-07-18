@@ -8,6 +8,7 @@ import {
   setMerchantPlan,
   findMerchantByPhone,
   findMerchantById,
+  backfillBusinessNameIfMissing,
 } from "../domain/merchants.js";
 import {
   findOwnerMerchantIdByMemberPhone,
@@ -324,7 +325,7 @@ async function handleMenuSelection(
   }
 }
 
-export async function handleInboundMessage(message: WhatsAppInboundMessage): Promise<void> {
+export async function handleInboundMessage(message: WhatsAppInboundMessage, profileName?: string): Promise<void> {
   const alreadyProcessed = await db.query.processedMessages.findFirst({
     where: eq(processedMessages.waMessageId, message.id),
   });
@@ -362,9 +363,14 @@ export async function handleInboundMessage(message: WhatsAppInboundMessage): Pro
     }
 
     if (!merchant) {
-      const result = await getOrCreateMerchant(merchantPhone);
+      const result = await getOrCreateMerchant(merchantPhone, profileName);
       merchant = result.merchant;
       isNew = result.isNew;
+    }
+
+    if (!isNew && profileName && !merchant.businessName) {
+      await backfillBusinessNameIfMissing(merchant.id, profileName);
+      merchant = { ...merchant, businessName: profileName };
     }
 
     if (!merchant) {

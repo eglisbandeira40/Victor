@@ -9,7 +9,10 @@ Implementado até agora:
 - [x] Webhook do WhatsApp Business Cloud API (verificação + recebimento de mensagens)
 - [x] Cadastro de dívida por linguagem natural ("Zé Carlos, 45,00, o almoço de hoje")
 - [x] Criação automática de comerciante (na primeira mensagem) e cliente (na primeira dívida), com
-      mensagem de boas-vindas explicando o básico só na primeira vez
+      mensagem de boas-vindas explicando o básico só na primeira vez. O nome do comerciante é
+      preenchido sozinho a partir do nome de exibição do WhatsApp (`contacts[].profile.name` do
+      webhook) — sem precisar cadastrar nada; comerciante antigo sem nome é preenchido na próxima
+      mensagem que mandar
 - [x] Soma ao saldo existente do cliente quando ele já existe
 - [x] Confirmação no tom de voz do Fiado, com saldo total atualizado
 - [x] Cadastro/atualização de telefone do cliente ("cadastrar Zé Carlos, telefone 11987654321")
