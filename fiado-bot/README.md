@@ -52,15 +52,15 @@ Implementado até agora:
       cadastro novo e de trial acabando
 - [x] Corrigir valor do último lançamento — "errei, o certo do Zé Carlos é 30" ajusta o valor da
       dívida/pagamento mais recente desse cliente, sem precisar excluir e lançar de novo
+- [x] Comando por voz (**desativado por padrão**, ver `OPENAI_API_KEY` em "Variáveis de ambiente") —
+      manda um áudio, o Fiado transcreve (OpenAI), mostra o que entendeu e só executa depois de você
+      confirmar com *sim*. Sem a key configurada, o bot avisa pra mandar por texto; preenchendo a key
+      no ambiente e reiniciando o app, ativa sozinho, sem precisar mexer em código
 
 Ainda não implementado (próximas fases, schema já preparado pra isso):
 - [ ] Export CSV / endpoint de visualização de dados
 - [ ] Visão de longo prazo: evoluir o Fiado de "controle de fiado" pra uma plataforma mais completa pro
       comerciante, incluindo controle de estoque (escopo ainda em aberto)
-- [ ] Comando por voz — receber áudio do WhatsApp, transcrever e resumir pro comerciante confirmar antes
-      de executar. O Claude não transcreve áudio nativamente, então precisa de um serviço externo de
-      speech-to-text (ex: Whisper da OpenAI) só pra esse passo; o texto transcrito segue pro mesmo
-      `extractIntent()` que já trata mensagem digitada
 
 ## Arquitetura
 
@@ -165,6 +165,27 @@ Ver [`.env.example`](./.env.example). Resumo:
 - `WHATSAPP_APP_SECRET` — opcional, mas recomendado em produção (valida a assinatura do webhook)
 - `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` — console.anthropic.com
 - `ADMIN_WHATSAPP_PHONE` — número do dono do Fiado (só dígitos, com código do país). Ver seção "Menu admin"
+- `OPENAI_API_KEY` — opcional. Ativa o comando por voz (ver seção "Comando por voz"). Sem ela, áudio fica desativado
+
+### Comando por voz
+
+Desativado por padrão. Pra ativar: cria uma key em platform.openai.com/api-keys e preenche
+`OPENAI_API_KEY` no ambiente — não precisa mudar nada no código, o recurso liga sozinho no próximo
+restart do app (`isVoiceTranscriptionEnabled()` em [`src/ai/transcribe.ts`](./src/ai/transcribe.ts)).
+
+Fluxo quando ativo:
+
+1. Comerciante manda um áudio (nota de voz do WhatsApp)
+2. [`downloadWhatsAppMedia`](./src/whatsapp/media.ts) baixa o arquivo via Graph API
+3. [`transcribeAudio`](./src/ai/transcribe.ts) transcreve usando `gpt-4o-mini-transcribe` da OpenAI
+   (custo ~R$0,015/minuto — irrelevante pro tamanho normal de um áudio de fiado)
+4. O texto transcrito passa pelo mesmo `extractIntent()` usado pra mensagem digitada
+5. O Fiado **não executa direto** — mostra a transcrição e o que entendeu, e pede confirmação
+   (*sim*/*não*), reaproveitando o padrão de `pendingAction` já usado noutras confirmações
+6. Só executa o comando depois do *sim*
+
+Sem a key configurada, o Fiado responde a qualquer áudio pedindo pra mandar por texto, sem tentar
+transcrever nada.
 
 ### Banco de dados
 

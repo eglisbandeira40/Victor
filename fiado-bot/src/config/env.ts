@@ -25,6 +25,10 @@ const envSchema = z.object({
   // Numero do WhatsApp do admin/dono do Fiado (so digitos, com codigo do pais, sem "+"). Esse numero
   // tem fluxo proprio (menu admin) e recebe aviso de comerciante novo e de trial vencendo.
   ADMIN_WHATSAPP_PHONE: z.string().default("5511958762003"),
+
+  // Opcional: sem essa key, comando por voz fica desativado (bot avisa pra mandar por texto).
+  // Preenchendo, ativa sozinho - nao precisa mudar mais nada. Pega em platform.openai.com/api-keys.
+  OPENAI_API_KEY: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

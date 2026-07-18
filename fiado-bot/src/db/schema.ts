@@ -10,6 +10,7 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+import type { FiadoIntent } from "../ai/claude.js";
 
 export type PendingAction =
   | {
@@ -25,7 +26,8 @@ export type PendingAction =
       matchedCustomerId: string | null;
       matchedCustomerName: string | null;
     }
-  | { type: "awaiting_business_name" };
+  | { type: "awaiting_business_name" }
+  | { type: "awaiting_voice_confirmation"; intent: FiadoIntent; transcript: string };
 
 export const merchants = pgTable("merchants", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),

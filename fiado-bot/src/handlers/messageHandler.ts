@@ -1,7 +1,9 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/client.js";
-import { processedMessages, type PendingAction } from "../db/schema.js";
-import { extractIntent } from "../ai/claude.js";
+import { processedMessages, type PendingAction, type merchants } from "../db/schema.js";
+import { extractIntent, type FiadoIntent } from "../ai/claude.js";
+import { isVoiceTranscriptionEnabled, transcribeAudio } from "../ai/transcribe.js";
+import { downloadWhatsAppMedia } from "../whatsapp/media.js";
 import {
   getOrCreateMerchant,
   setPendingAction,
@@ -45,6 +47,8 @@ import { normalizePhoneBR, formatPhoneDisplay, buildWhatsAppLink } from "../util
 import { env } from "../config/env.js";
 import { logger } from "../utils/logger.js";
 import type { WhatsAppInboundMessage, WhatsAppSharedContact } from "../whatsapp/types.js";
+
+type MerchantRow = typeof merchants.$inferSelect;
 
 const FALLBACK_MESSAGE =
   "Nao entendi 🤔\n" +
@@ -188,6 +192,115 @@ async function handlePendingBusinessNameReply(
   await setBusinessName(merchantId, name);
   await setPendingAction(merchantId, null);
   await sendWhatsAppText(merchantPhone, `Prontinho ✅ Vou te chamar de *${name}* daqui pra frente.`);
+}
+
+/** Resumo curto do que foi entendido, mostrado antes de executar um comando vindo de audio. */
+function describeIntent(intent: FiadoIntent): string {
+  switch (intent.type) {
+    case "record_debt": {
+      const descPart = intent.description ? ` (${intent.description})` : "";
+      const duePart = intent.dueDate
+        ? `, vence dia ${new Date(`${intent.dueDate}T12:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}`
+        : "";
+      return `Nova dívida — *${intent.customerName}*, ${formatBRL(reaisToCents(intent.amount))}${descPart}${duePart}`;
+    }
+    case "register_payment":
+      return `Pagamento — *${intent.customerName}* pagou ${formatBRL(reaisToCents(intent.amount))}`;
+    case "correct_last_entry":
+      return `Corrigir último lançamento de *${intent.customerName}* pra ${formatBRL(reaisToCents(intent.correctAmount))}`;
+    case "collect_customer":
+      return `Cobrar *${intent.customerName}*`;
+    case "close_account":
+      return `Fechar a conta de *${intent.customerName}*`;
+    case "archive_account":
+      return `Excluir/arquivar a conta de *${intent.customerName}*`;
+    case "register_customer":
+      return `Cadastrar telefone de *${intent.customerName}*: ${intent.phone}`;
+    case "query_balance":
+      return `Consultar saldo de *${intent.customerName}*`;
+    case "purchase_history":
+      return `Ver histórico de *${intent.customerName}*`;
+    case "query_debtors":
+      return "Ver quem tá devendo";
+    case "weekly_summary":
+      return "Ver resumo da semana";
+    case "monthly_statement":
+      return "Ver extrato do mês";
+    case "list_defaulters":
+      return "Ver inadimplentes";
+    case "add_team_member":
+      return `Autorizar funcionário *${intent.memberName}*: ${intent.phone}`;
+    case "member_activity":
+      return `Ver lançamentos de *${intent.memberName}*`;
+  }
+}
+
+async function handleVoiceMessage(
+  merchant: MerchantRow,
+  merchantPhone: string,
+  audio: { id: string; mime_type: string }
+): Promise<void> {
+  if (!isVoiceTranscriptionEnabled()) {
+    await sendWhatsAppText(
+      merchantPhone,
+      "🎙️ Ainda não consigo entender áudio por aqui. Por enquanto, manda por texto:\n" +
+        "_Zé Carlos, 45,00, almoço de hoje_"
+    );
+    return;
+  }
+
+  try {
+    const { buffer, mimeType } = await downloadWhatsAppMedia(audio.id);
+    const transcript = await transcribeAudio(buffer, mimeType);
+
+    if (!transcript) {
+      await sendWhatsAppText(merchantPhone, "Não consegui entender o áudio 😕 Tenta gravar de novo, ou manda por texto.");
+      return;
+    }
+
+    const intent = await extractIntent(transcript);
+
+    if (!intent) {
+      await sendWhatsAppText(
+        merchantPhone,
+        `🎙️ Ouvi: _"${transcript}"_\n\nMas não entendi o comando. Tenta gravar de novo, ou manda por texto.`
+      );
+      return;
+    }
+
+    await setPendingAction(merchant.id, { type: "awaiting_voice_confirmation", intent, transcript });
+
+    await sendWhatsAppText(
+      merchantPhone,
+      `🎙️ Ouvi: _"${transcript}"_\n\nEntendi: ${describeIntent(intent)}\n\nConfirma? Responde *sim* ou *não*.`
+    );
+  } catch (err) {
+    logger.error("Erro ao processar audio", { error: err instanceof Error ? err.message : err });
+    await sendWhatsAppText(merchantPhone, "Ops, não consegui processar esse áudio 😕 Tenta de novo ou manda por texto.");
+  }
+}
+
+async function handlePendingVoiceConfirmation(
+  merchant: MerchantRow,
+  merchantPhone: string,
+  pending: Extract<PendingAction, { type: "awaiting_voice_confirmation" }>,
+  text: string
+): Promise<void> {
+  const answer = parseYesNo(text);
+
+  if (answer === null) {
+    await sendWhatsAppText(merchantPhone, "Não entendi 🤔 Responde só *sim* ou *não*.");
+    return;
+  }
+
+  await setPendingAction(merchant.id, null);
+
+  if (!answer) {
+    await sendWhatsAppText(merchantPhone, "Ok, não fiz nada 👍 Manda de novo (por áudio ou texto) se quiser tentar outra vez.");
+    return;
+  }
+
+  await executeIntent(pending.intent, merchant, merchantPhone);
 }
 
 async function handlePendingContactConfirmation(
@@ -343,6 +456,316 @@ async function handleMenuSelection(
   }
 }
 
+async function executeIntent(intent: FiadoIntent, merchant: MerchantRow, merchantPhone: string): Promise<void> {
+  switch (intent.type) {
+    case "record_debt": {
+      const customer = await getOrCreateCustomer(merchant.id, intent.customerName);
+      const amountCents = reaisToCents(intent.amount);
+
+      await createDebt({
+        customerId: customer.id,
+        merchantId: merchant.id,
+        amountCents,
+        description: intent.description,
+        dueDate: intent.dueDate,
+        createdByPhone: merchantPhone,
+      });
+
+      const balanceCents = await getCustomerBalanceCents(customer.id, customer.balanceResetAt);
+      const firstName = customer.name.split(" ")[0];
+      const descriptionPart = intent.description ? ` (${intent.description})` : "";
+      const dueDatePart = intent.dueDate
+        ? `, vence dia ${new Date(`${intent.dueDate}T12:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}`
+        : "";
+
+      await sendWhatsAppText(
+        merchantPhone,
+        `Anotado ✅ ${customer.name} deve ${formatBRL(amountCents)}${descriptionPart}${dueDatePart}. ` +
+          `No total ${firstName} te deve ${formatBRL(balanceCents)}` +
+          (await actorSuffix(merchant, merchantPhone))
+      );
+      break;
+    }
+
+    case "register_customer": {
+      const customer = await getOrCreateCustomer(merchant.id, intent.customerName);
+      const phone = normalizePhoneBR(intent.phone);
+      await registerCustomer(customer.id, phone);
+
+      await sendWhatsAppText(merchantPhone, `Cadastrado ✅ ${customer.name} (telefone salvo)`);
+      break;
+    }
+
+    case "register_payment": {
+      const customer = await getOrCreateCustomer(merchant.id, intent.customerName);
+      const amountCents = reaisToCents(intent.amount);
+
+      await createPayment({
+        customerId: customer.id,
+        merchantId: merchant.id,
+        amountCents,
+        createdByPhone: merchantPhone,
+      });
+
+      const balanceCents = await getCustomerBalanceCents(customer.id, customer.balanceResetAt);
+      const firstName = customer.name.split(" ")[0];
+
+      const reply =
+        balanceCents <= 0
+          ? `Recebido ✅ ${customer.name} pagou ${formatBRL(amountCents)}. Tá quitado! 🎉`
+          : `Recebido ✅ ${customer.name} pagou ${formatBRL(amountCents)}. Agora ${firstName} te deve ${formatBRL(balanceCents)}`;
+
+      await sendWhatsAppText(merchantPhone, reply + (await actorSuffix(merchant, merchantPhone)));
+      break;
+    }
+
+    case "close_account": {
+      const customer = await getOrCreateCustomer(merchant.id, intent.customerName);
+      const balanceCents = await getCustomerBalanceCents(customer.id, customer.balanceResetAt);
+
+      if (balanceCents <= 0) {
+        await sendWhatsAppText(merchantPhone, `A conta de ${customer.name} já tá zerada, nada pra fechar 👍`);
+        break;
+      }
+
+      await setPendingAction(merchant.id, {
+        type: "awaiting_installments",
+        customerId: customer.id,
+        customerName: customer.name,
+        balanceCents,
+      });
+
+      await sendWhatsAppText(
+        merchantPhone,
+        `Fechando a conta de ${customer.name}: ${formatBRL(balanceCents)}. ` +
+          `Vai pagar em quantas vezes? Me responde só o número (1 pra à vista).`
+      );
+      break;
+    }
+
+    case "archive_account": {
+      const customer = await getOrCreateCustomer(merchant.id, intent.customerName);
+      const balanceCents = await getCustomerBalanceCents(customer.id, customer.balanceResetAt);
+
+      if (balanceCents > 0) {
+        await sendWhatsAppText(
+          merchantPhone,
+          `${customer.name} ainda deve ${formatBRL(balanceCents)} — só dá pra excluir a conta depois de quitada.`
+        );
+        break;
+      }
+
+      await archiveCustomerBalance(customer.id);
+      await sendWhatsAppText(
+        merchantPhone,
+        `Prontinho ✅ Conta antiga de ${customer.name} arquivada. Ele continua cadastrado, pronto pra uma conta nova.`
+      );
+      break;
+    }
+
+    case "purchase_history": {
+      const customer = await getOrCreateCustomer(merchant.id, intent.customerName);
+      const history = await getCustomerHistory(customer.id);
+
+      if (history.length === 0) {
+        await sendWhatsAppText(merchantPhone, `Ainda não tem nada no histórico de ${customer.name}.`);
+        break;
+      }
+
+      const memberNames = await getMemberNamesByPhone(merchant.id);
+      const lancadoPor = (phone: string | null) => {
+        if (!phone || phone === merchant.whatsappPhone) return "";
+        return ` — lançado por ${memberNames.get(phone) ?? "funcionário"}`;
+      };
+
+      const lines = history.map((entry) => {
+        const date = entry.createdAt.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+        const quem = lancadoPor(entry.createdByPhone);
+        if (entry.type === "debt") {
+          const desc = entry.description ? ` (${entry.description})` : "";
+          return `${date} — Dívida: ${formatBRL(entry.amountCents)}${desc}${quem}`;
+        }
+        return `${date} — Pagamento: ${formatBRL(entry.amountCents)}${quem}`;
+      });
+
+      const balanceCents = await getCustomerBalanceCents(customer.id, customer.balanceResetAt);
+
+      await sendWhatsAppText(
+        merchantPhone,
+        `🧾 *Histórico de ${customer.name}*\n\n${lines.join("\n")}\n\nSaldo atual: ${formatBRL(balanceCents)}`
+      );
+      break;
+    }
+
+    case "query_balance": {
+      const customer = await findCustomerByName(merchant.id, intent.customerName);
+
+      if (!customer) {
+        await sendWhatsAppText(merchantPhone, `Não tenho nenhum cliente chamado ${intent.customerName} cadastrado.`);
+        break;
+      }
+
+      const balanceCents = await getCustomerBalanceCents(customer.id, customer.balanceResetAt);
+      const reply =
+        balanceCents > 0
+          ? `${customer.name} te deve ${formatBRL(balanceCents)}`
+          : `${customer.name} não deve nada agora 👍`;
+
+      await sendWhatsAppText(merchantPhone, reply);
+      break;
+    }
+
+    case "query_debtors": {
+      await sendDebtorsList(merchant, merchantPhone, intent.minAmount);
+      break;
+    }
+
+    case "weekly_summary": {
+      await sendWeeklySummary(merchant, merchantPhone);
+      break;
+    }
+
+    case "monthly_statement": {
+      await sendMonthlyStatement(merchant, merchantPhone);
+      break;
+    }
+
+    case "list_defaulters": {
+      await sendDefaultersList(merchant, merchantPhone);
+      break;
+    }
+
+    case "collect_customer": {
+      const customer = await findCustomerByName(merchant.id, intent.customerName);
+
+      if (!customer) {
+        await sendWhatsAppText(merchantPhone, `Não tenho nenhum cliente chamado ${intent.customerName} cadastrado.`);
+        break;
+      }
+
+      const balanceCents = await getCustomerBalanceCents(customer.id, customer.balanceResetAt);
+
+      if (balanceCents <= 0) {
+        await sendWhatsAppText(merchantPhone, `${customer.name} não deve nada agora, nada pra cobrar 👍`);
+        break;
+      }
+
+      if (!customer.phone) {
+        await sendWhatsAppText(
+          merchantPhone,
+          `Não tenho o telefone de ${customer.name} salvo. Manda assim: telefone do ${customer.name}, DDD e número`
+        );
+        break;
+      }
+
+      const link = buildWhatsAppLink(
+        customer.phone,
+        buildCollectionMessage(merchant.businessName, { name: customer.name, balanceCents })
+      );
+
+      await sendWhatsAppText(
+        merchantPhone,
+        `💰 *Cobrança de ${customer.name}*\n\nSaldo: ${formatBRL(balanceCents)}\n👉 ${link}`
+      );
+      break;
+    }
+
+    case "correct_last_entry": {
+      const customer = await findCustomerByName(merchant.id, intent.customerName);
+
+      if (!customer) {
+        await sendWhatsAppText(merchantPhone, `Não tenho nenhum cliente chamado ${intent.customerName} cadastrado.`);
+        break;
+      }
+
+      const [lastDebt, lastPayment] = await Promise.all([
+        getLastDebtForCustomer(customer.id),
+        getLastPaymentForCustomer(customer.id),
+      ]);
+
+      if (!lastDebt && !lastPayment) {
+        await sendWhatsAppText(merchantPhone, `Não tem nenhum lançamento de ${customer.name} pra corrigir.`);
+        break;
+      }
+
+      const correctingDebt = !lastPayment || (lastDebt && lastDebt.createdAt >= lastPayment.createdAt);
+      const newAmountCents = reaisToCents(intent.correctAmount);
+
+      if (correctingDebt && lastDebt) {
+        await updateDebtAmount(lastDebt.id, newAmountCents);
+      } else if (lastPayment) {
+        await updatePaymentAmount(lastPayment.id, newAmountCents);
+      }
+
+      const balanceCents = await getCustomerBalanceCents(customer.id, customer.balanceResetAt);
+      const tipo = correctingDebt ? "Dívida" : "Pagamento";
+
+      await sendWhatsAppText(
+        merchantPhone,
+        `Corrigido ✅ ${tipo} de ${customer.name} agora é ${formatBRL(newAmountCents)}. ` +
+          `Saldo atual: ${formatBRL(balanceCents)}`
+      );
+      break;
+    }
+
+    case "add_team_member": {
+      const phone = normalizePhoneBR(intent.phone);
+      const result = await addMerchantMember(merchant.id, phone, intent.memberName);
+
+      if (result.status === "own_account") {
+        await sendWhatsAppText(
+          merchantPhone,
+          `Esse número já tem uma conta própria no Fiado, não dá pra usar como funcionário. Confere se é o número certo.`
+        );
+        break;
+      }
+
+      if (result.status === "already_member") {
+        const reply = result.sameMerchant
+          ? `${intent.memberName} já está autorizado a lançar fiado na sua conta 👍`
+          : `Esse número já está vinculado a outro comércio no Fiado.`;
+        await sendWhatsAppText(merchantPhone, reply);
+        break;
+      }
+
+      await sendWhatsAppText(
+        merchantPhone,
+        `Prontinho ✅ ${intent.memberName} (${formatPhoneDisplay(phone)}) já pode mandar mensagem pro Fiado ` +
+          `direto do número dele pra lançar fiado na sua conta.`
+      );
+      break;
+    }
+
+    case "member_activity": {
+      const member = await findMemberByName(merchant.id, intent.memberName);
+
+      if (!member) {
+        await sendWhatsAppText(merchantPhone, `Não tenho nenhum funcionário chamado ${intent.memberName} cadastrado.`);
+        break;
+      }
+
+      const activity = await getMemberActivity(merchant.id, member.phone);
+      const displayName = member.name ?? intent.memberName;
+
+      if (activity.length === 0) {
+        await sendWhatsAppText(merchantPhone, `${displayName} ainda não lançou nada.`);
+        break;
+      }
+
+      const lines = activity.map((entry) => {
+        const date = entry.createdAt.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+        const desc = entry.description ? ` (${entry.description})` : "";
+        return entry.type === "debt"
+          ? `${date} — ${entry.customerName}: dívida de ${formatBRL(entry.amountCents)}${desc}`
+          : `${date} — ${entry.customerName}: pagamento de ${formatBRL(entry.amountCents)}`;
+      });
+
+      await sendWhatsAppText(merchantPhone, `🧾 *Lançamentos de ${displayName}*\n\n${lines.join("\n")}`);
+      break;
+    }
+  }
+}
+
 export async function handleInboundMessage(message: WhatsAppInboundMessage, profileName?: string): Promise<void> {
   const alreadyProcessed = await db.query.processedMessages.findFirst({
     where: eq(processedMessages.waMessageId, message.id),
@@ -426,6 +849,11 @@ export async function handleInboundMessage(message: WhatsAppInboundMessage, prof
       return;
     }
 
+    if (merchant.pendingAction?.type === "awaiting_voice_confirmation") {
+      await handlePendingVoiceConfirmation(merchant, merchantPhone, merchant.pendingAction, bodyText ?? "");
+      return;
+    }
+
     if (message.type === "contacts" && message.contacts?.length) {
       await handleSharedContact(merchant.id, merchantPhone, message.contacts[0]);
       return;
@@ -433,6 +861,11 @@ export async function handleInboundMessage(message: WhatsAppInboundMessage, prof
 
     if (message.type === "interactive" && message.interactive?.list_reply) {
       await handleMenuSelection(merchant, merchantPhone, message.interactive.list_reply.id);
+      return;
+    }
+
+    if (message.type === "audio" && message.audio) {
+      await handleVoiceMessage(merchant, merchantPhone, message.audio);
       return;
     }
 
@@ -453,313 +886,7 @@ export async function handleInboundMessage(message: WhatsAppInboundMessage, prof
       return;
     }
 
-    switch (intent.type) {
-      case "record_debt": {
-        const customer = await getOrCreateCustomer(merchant.id, intent.customerName);
-        const amountCents = reaisToCents(intent.amount);
-
-        await createDebt({
-          customerId: customer.id,
-          merchantId: merchant.id,
-          amountCents,
-          description: intent.description,
-          dueDate: intent.dueDate,
-          createdByPhone: merchantPhone,
-        });
-
-        const balanceCents = await getCustomerBalanceCents(customer.id, customer.balanceResetAt);
-        const firstName = customer.name.split(" ")[0];
-        const descriptionPart = intent.description ? ` (${intent.description})` : "";
-        const dueDatePart = intent.dueDate
-          ? `, vence dia ${new Date(`${intent.dueDate}T12:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}`
-          : "";
-
-        await sendWhatsAppText(
-          merchantPhone,
-          `Anotado ✅ ${customer.name} deve ${formatBRL(amountCents)}${descriptionPart}${dueDatePart}. ` +
-            `No total ${firstName} te deve ${formatBRL(balanceCents)}` +
-            (await actorSuffix(merchant, merchantPhone))
-        );
-        break;
-      }
-
-      case "register_customer": {
-        const customer = await getOrCreateCustomer(merchant.id, intent.customerName);
-        const phone = normalizePhoneBR(intent.phone);
-        await registerCustomer(customer.id, phone);
-
-        await sendWhatsAppText(merchantPhone, `Cadastrado ✅ ${customer.name} (telefone salvo)`);
-        break;
-      }
-
-      case "register_payment": {
-        const customer = await getOrCreateCustomer(merchant.id, intent.customerName);
-        const amountCents = reaisToCents(intent.amount);
-
-        await createPayment({
-          customerId: customer.id,
-          merchantId: merchant.id,
-          amountCents,
-          createdByPhone: merchantPhone,
-        });
-
-        const balanceCents = await getCustomerBalanceCents(customer.id, customer.balanceResetAt);
-        const firstName = customer.name.split(" ")[0];
-
-        const reply =
-          balanceCents <= 0
-            ? `Recebido ✅ ${customer.name} pagou ${formatBRL(amountCents)}. Tá quitado! 🎉`
-            : `Recebido ✅ ${customer.name} pagou ${formatBRL(amountCents)}. Agora ${firstName} te deve ${formatBRL(balanceCents)}`;
-
-        await sendWhatsAppText(merchantPhone, reply + (await actorSuffix(merchant, merchantPhone)));
-        break;
-      }
-
-      case "close_account": {
-        const customer = await getOrCreateCustomer(merchant.id, intent.customerName);
-        const balanceCents = await getCustomerBalanceCents(customer.id, customer.balanceResetAt);
-
-        if (balanceCents <= 0) {
-          await sendWhatsAppText(merchantPhone, `A conta de ${customer.name} já tá zerada, nada pra fechar 👍`);
-          break;
-        }
-
-        await setPendingAction(merchant.id, {
-          type: "awaiting_installments",
-          customerId: customer.id,
-          customerName: customer.name,
-          balanceCents,
-        });
-
-        await sendWhatsAppText(
-          merchantPhone,
-          `Fechando a conta de ${customer.name}: ${formatBRL(balanceCents)}. ` +
-            `Vai pagar em quantas vezes? Me responde só o número (1 pra à vista).`
-        );
-        break;
-      }
-
-      case "archive_account": {
-        const customer = await getOrCreateCustomer(merchant.id, intent.customerName);
-        const balanceCents = await getCustomerBalanceCents(customer.id, customer.balanceResetAt);
-
-        if (balanceCents > 0) {
-          await sendWhatsAppText(
-            merchantPhone,
-            `${customer.name} ainda deve ${formatBRL(balanceCents)} — só dá pra excluir a conta depois de quitada.`
-          );
-          break;
-        }
-
-        await archiveCustomerBalance(customer.id);
-        await sendWhatsAppText(
-          merchantPhone,
-          `Prontinho ✅ Conta antiga de ${customer.name} arquivada. Ele continua cadastrado, pronto pra uma conta nova.`
-        );
-        break;
-      }
-
-      case "purchase_history": {
-        const customer = await getOrCreateCustomer(merchant.id, intent.customerName);
-        const history = await getCustomerHistory(customer.id);
-
-        if (history.length === 0) {
-          await sendWhatsAppText(merchantPhone, `Ainda não tem nada no histórico de ${customer.name}.`);
-          break;
-        }
-
-        const memberNames = await getMemberNamesByPhone(merchant.id);
-        const lancadoPor = (phone: string | null) => {
-          if (!phone || phone === merchant.whatsappPhone) return "";
-          return ` — lançado por ${memberNames.get(phone) ?? "funcionário"}`;
-        };
-
-        const lines = history.map((entry) => {
-          const date = entry.createdAt.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-          const quem = lancadoPor(entry.createdByPhone);
-          if (entry.type === "debt") {
-            const desc = entry.description ? ` (${entry.description})` : "";
-            return `${date} — Dívida: ${formatBRL(entry.amountCents)}${desc}${quem}`;
-          }
-          return `${date} — Pagamento: ${formatBRL(entry.amountCents)}${quem}`;
-        });
-
-        const balanceCents = await getCustomerBalanceCents(customer.id, customer.balanceResetAt);
-
-        await sendWhatsAppText(
-          merchantPhone,
-          `🧾 *Histórico de ${customer.name}*\n\n${lines.join("\n")}\n\nSaldo atual: ${formatBRL(balanceCents)}`
-        );
-        break;
-      }
-
-      case "query_balance": {
-        const customer = await findCustomerByName(merchant.id, intent.customerName);
-
-        if (!customer) {
-          await sendWhatsAppText(merchantPhone, `Não tenho nenhum cliente chamado ${intent.customerName} cadastrado.`);
-          break;
-        }
-
-        const balanceCents = await getCustomerBalanceCents(customer.id, customer.balanceResetAt);
-        const reply =
-          balanceCents > 0
-            ? `${customer.name} te deve ${formatBRL(balanceCents)}`
-            : `${customer.name} não deve nada agora 👍`;
-
-        await sendWhatsAppText(merchantPhone, reply);
-        break;
-      }
-
-      case "query_debtors": {
-        await sendDebtorsList(merchant, merchantPhone, intent.minAmount);
-        break;
-      }
-
-      case "weekly_summary": {
-        await sendWeeklySummary(merchant, merchantPhone);
-        break;
-      }
-
-      case "monthly_statement": {
-        await sendMonthlyStatement(merchant, merchantPhone);
-        break;
-      }
-
-      case "list_defaulters": {
-        await sendDefaultersList(merchant, merchantPhone);
-        break;
-      }
-
-      case "collect_customer": {
-        const customer = await findCustomerByName(merchant.id, intent.customerName);
-
-        if (!customer) {
-          await sendWhatsAppText(merchantPhone, `Não tenho nenhum cliente chamado ${intent.customerName} cadastrado.`);
-          break;
-        }
-
-        const balanceCents = await getCustomerBalanceCents(customer.id, customer.balanceResetAt);
-
-        if (balanceCents <= 0) {
-          await sendWhatsAppText(merchantPhone, `${customer.name} não deve nada agora, nada pra cobrar 👍`);
-          break;
-        }
-
-        if (!customer.phone) {
-          await sendWhatsAppText(
-            merchantPhone,
-            `Não tenho o telefone de ${customer.name} salvo. Manda assim: telefone do ${customer.name}, DDD e número`
-          );
-          break;
-        }
-
-        const link = buildWhatsAppLink(
-          customer.phone,
-          buildCollectionMessage(merchant.businessName, { name: customer.name, balanceCents })
-        );
-
-        await sendWhatsAppText(
-          merchantPhone,
-          `💰 *Cobrança de ${customer.name}*\n\nSaldo: ${formatBRL(balanceCents)}\n👉 ${link}`
-        );
-        break;
-      }
-
-      case "correct_last_entry": {
-        const customer = await findCustomerByName(merchant.id, intent.customerName);
-
-        if (!customer) {
-          await sendWhatsAppText(merchantPhone, `Não tenho nenhum cliente chamado ${intent.customerName} cadastrado.`);
-          break;
-        }
-
-        const [lastDebt, lastPayment] = await Promise.all([
-          getLastDebtForCustomer(customer.id),
-          getLastPaymentForCustomer(customer.id),
-        ]);
-
-        if (!lastDebt && !lastPayment) {
-          await sendWhatsAppText(merchantPhone, `Não tem nenhum lançamento de ${customer.name} pra corrigir.`);
-          break;
-        }
-
-        const correctingDebt = !lastPayment || (lastDebt && lastDebt.createdAt >= lastPayment.createdAt);
-        const newAmountCents = reaisToCents(intent.correctAmount);
-
-        if (correctingDebt && lastDebt) {
-          await updateDebtAmount(lastDebt.id, newAmountCents);
-        } else if (lastPayment) {
-          await updatePaymentAmount(lastPayment.id, newAmountCents);
-        }
-
-        const balanceCents = await getCustomerBalanceCents(customer.id, customer.balanceResetAt);
-        const tipo = correctingDebt ? "Dívida" : "Pagamento";
-
-        await sendWhatsAppText(
-          merchantPhone,
-          `Corrigido ✅ ${tipo} de ${customer.name} agora é ${formatBRL(newAmountCents)}. ` +
-            `Saldo atual: ${formatBRL(balanceCents)}`
-        );
-        break;
-      }
-
-      case "add_team_member": {
-        const phone = normalizePhoneBR(intent.phone);
-        const result = await addMerchantMember(merchant.id, phone, intent.memberName);
-
-        if (result.status === "own_account") {
-          await sendWhatsAppText(
-            merchantPhone,
-            `Esse número já tem uma conta própria no Fiado, não dá pra usar como funcionário. Confere se é o número certo.`
-          );
-          break;
-        }
-
-        if (result.status === "already_member") {
-          const reply = result.sameMerchant
-            ? `${intent.memberName} já está autorizado a lançar fiado na sua conta 👍`
-            : `Esse número já está vinculado a outro comércio no Fiado.`;
-          await sendWhatsAppText(merchantPhone, reply);
-          break;
-        }
-
-        await sendWhatsAppText(
-          merchantPhone,
-          `Prontinho ✅ ${intent.memberName} (${formatPhoneDisplay(phone)}) já pode mandar mensagem pro Fiado ` +
-            `direto do número dele pra lançar fiado na sua conta.`
-        );
-        break;
-      }
-
-      case "member_activity": {
-        const member = await findMemberByName(merchant.id, intent.memberName);
-
-        if (!member) {
-          await sendWhatsAppText(merchantPhone, `Não tenho nenhum funcionário chamado ${intent.memberName} cadastrado.`);
-          break;
-        }
-
-        const activity = await getMemberActivity(merchant.id, member.phone);
-        const displayName = member.name ?? intent.memberName;
-
-        if (activity.length === 0) {
-          await sendWhatsAppText(merchantPhone, `${displayName} ainda não lançou nada.`);
-          break;
-        }
-
-        const lines = activity.map((entry) => {
-          const date = entry.createdAt.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-          const desc = entry.description ? ` (${entry.description})` : "";
-          return entry.type === "debt"
-            ? `${date} — ${entry.customerName}: dívida de ${formatBRL(entry.amountCents)}${desc}`
-            : `${date} — ${entry.customerName}: pagamento de ${formatBRL(entry.amountCents)}`;
-        });
-
-        await sendWhatsAppText(merchantPhone, `🧾 *Lançamentos de ${displayName}*\n\n${lines.join("\n")}`);
-        break;
-      }
-    }
+    await executeIntent(intent, merchant, merchantPhone);
   } catch (err) {
     logger.error("Erro ao processar mensagem", { error: err instanceof Error ? err.message : err });
     await sendWhatsAppText(merchantPhone, ERROR_MESSAGE).catch(() => {

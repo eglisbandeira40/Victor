@@ -34,4 +34,6 @@ export interface WhatsAppInboundMessage {
     list_reply?: { id: string; title: string; description?: string };
     button_reply?: { id: string; title: string };
   };
+  /** Presente quando type === "audio": mensagem de voz - precisa baixar via Graph API pelo `id`. */
+  audio?: { id: string; mime_type: string };
 }
