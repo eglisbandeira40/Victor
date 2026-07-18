@@ -70,3 +70,7 @@ export async function backfillBusinessNameIfMissing(merchantId: string, profileN
     .set({ businessName: profileName, updatedAt: new Date() })
     .where(and(eq(merchants.id, merchantId), isNull(merchants.businessName)));
 }
+
+export async function setBusinessName(merchantId: string, businessName: string): Promise<void> {
+  await db.update(merchants).set({ businessName, updatedAt: new Date() }).where(eq(merchants.id, merchantId));
+}

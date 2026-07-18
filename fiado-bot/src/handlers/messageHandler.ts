@@ -9,6 +9,7 @@ import {
   findMerchantByPhone,
   findMerchantById,
   backfillBusinessNameIfMissing,
+  setBusinessName,
 } from "../domain/merchants.js";
 import {
   findOwnerMerchantIdByMemberPhone,
@@ -170,6 +171,23 @@ async function handlePendingInstallmentReply(
     `Combinado ✅ ${pending.customerName} vai quitar ${formatBRL(pending.balanceCents)} ${vezes}. ` +
       `Quando ele for pagando, me avisa (ex: "${pending.customerName} pagou 15").`
   );
+}
+
+async function handlePendingBusinessNameReply(
+  merchantId: string,
+  merchantPhone: string,
+  text: string
+): Promise<void> {
+  const name = text.trim();
+
+  if (!name) {
+    await sendWhatsAppText(merchantPhone, "Não entendi 🤔 Me manda só o nome (seu ou do comércio).");
+    return;
+  }
+
+  await setBusinessName(merchantId, name);
+  await setPendingAction(merchantId, null);
+  await sendWhatsAppText(merchantPhone, `Prontinho ✅ Vou te chamar de *${name}* daqui pra frente.`);
 }
 
 async function handlePendingContactConfirmation(
@@ -400,6 +418,11 @@ export async function handleInboundMessage(message: WhatsAppInboundMessage, prof
 
     if (merchant.pendingAction?.type === "awaiting_contact_confirmation") {
       await handlePendingContactConfirmation(merchant.id, merchantPhone, merchant.pendingAction, bodyText ?? "");
+      return;
+    }
+
+    if (merchant.pendingAction?.type === "awaiting_business_name") {
+      await handlePendingBusinessNameReply(merchant.id, merchantPhone, bodyText ?? "");
       return;
     }
 

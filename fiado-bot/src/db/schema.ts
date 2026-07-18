@@ -24,7 +24,8 @@ export type PendingAction =
       phone: string;
       matchedCustomerId: string | null;
       matchedCustomerName: string | null;
-    };
+    }
+  | { type: "awaiting_business_name" };
 
 export const merchants = pgTable("merchants", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),

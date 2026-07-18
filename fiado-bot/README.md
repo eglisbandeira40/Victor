@@ -142,6 +142,7 @@ Ver [`src/db/schema.ts`](./src/db/schema.ts) (Drizzle) e as migrations em [`src/
 | GET    | `/internal/merchants`         | Lista todos os comerciantes com plano/trial em JSON (`?token=WHATSAPP_VERIFY_TOKEN`), consulta pontual fora do WhatsApp |
 | POST   | `/internal/set-plan`          | Libera/bloqueia/marca vitalício um comerciante manualmente (`?token=...&phone=5511999998888&plan=trial\|active\|lifetime\|blocked`) |
 | POST   | `/internal/send-message`      | Manda uma mensagem de texto avulsa pra um número (`?token=...&phone=5511999998888`, body JSON `{"text":"..."}`) |
+| POST   | `/internal/ask-business-name` | Pergunta o nome pro comerciante e aguarda a resposta (`?token=...&phone=5511999998888`) — pra preencher quem ainda tá "(sem nome)" |
 
 ## Rodando localmente
 

@@ -3,7 +3,7 @@ import { env } from "../config/env.js";
 import { runWeeklyJobs } from "../jobs/scheduler.js";
 import { runDueDateReminders } from "../jobs/dueDateReminderJob.js";
 import { runAdminTrialAlert } from "../jobs/adminTrialAlertJob.js";
-import { findMerchantByPhone, setMerchantPlan } from "../domain/merchants.js";
+import { findMerchantByPhone, setMerchantPlan, setPendingAction } from "../domain/merchants.js";
 import { getAllMerchantsOrdered } from "../domain/adminStats.js";
 import { sendWhatsAppText } from "../whatsapp/client.js";
 import { logger } from "../utils/logger.js";
@@ -144,6 +144,37 @@ export async function registerInternalRoutes(app: FastifyInstance) {
       return reply.send({ ok: true });
     } catch (err) {
       logger.error("Erro ao mandar mensagem avulsa", { error: err instanceof Error ? err.message : err });
+      return reply.status(500).send({ ok: false });
+    }
+  });
+
+  // Pergunta o nome pro comerciante (fica aguardando a resposta) - pra preencher business_name de quem
+  // ja tem conta mas ainda ta "(sem nome)". phone no formato que o WhatsApp manda (sem "+").
+  app.post("/internal/ask-business-name", async (request: FastifyRequest, reply: FastifyReply) => {
+    const query = request.query as Record<string, string>;
+
+    if (query.token !== env.WHATSAPP_VERIFY_TOKEN) {
+      return reply.status(403).send("Forbidden");
+    }
+
+    if (!query.phone) {
+      return reply.status(400).send({ ok: false, error: "informe ?phone=..." });
+    }
+
+    try {
+      const merchant = await findMerchantByPhone(query.phone);
+      if (!merchant) {
+        return reply.status(404).send({ ok: false, error: "merchant nao encontrado" });
+      }
+
+      await setPendingAction(merchant.id, { type: "awaiting_business_name" });
+      await sendWhatsAppText(
+        query.phone,
+        "Oi! 👋 Só uma perguntinha rápida pra eu te atender melhor: qual o seu nome ou o nome do seu comércio?"
+      );
+      return reply.send({ ok: true });
+    } catch (err) {
+      logger.error("Erro ao perguntar nome do comerciante", { error: err instanceof Error ? err.message : err });
       return reply.status(500).send({ ok: false });
     }
   });
