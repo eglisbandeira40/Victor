@@ -131,6 +131,24 @@ schedule, ou `cron` do sistema operacional apontando para um `curl`).
   qualquer Postgres (Neon, Supabase, RDS, etc.) — basta apontar
   `DATABASE_URL`.
 
+### Docker (EasyPanel, etc.)
+
+Há um `Dockerfile` multi-stage (deps → build → runtime) na raiz do projeto.
+No start do container, `docker-entrypoint.sh` roda `prisma migrate deploy`
+automaticamente antes de subir o servidor (`prisma migrate deploy` é seguro
+de rodar toda vez — idempotente, não reaplica migrations já aplicadas).
+
+Variáveis de ambiente obrigatórias no serviço (as mesmas do `.env.example`):
+`DATABASE_URL`, `AUTH_SECRET`. As demais (`RESEND_API_KEY`,
+`ASAAS_MASTER_API_KEY`, `ASAAS_WEBHOOK_TOKEN`, `CRON_SECRET`) são opcionais
+para o app subir, mas necessárias para e-mail de cobrança / gateway de
+pagamento / cron da régua funcionarem de verdade.
+
+Nota: o build da imagem Docker não pôde ser testado neste ambiente de
+desenvolvimento (o proxy de rede da sandbox bloqueia pulls do Docker Hub) —
+o Dockerfile segue um padrão multi-stage padrão do ecossistema Next.js, mas
+vale rodar o primeiro build no próprio EasyPanel e observar o log.
+
 ## O que falta para produção
 
 - Envio de WhatsApp/SMS na régua de cobrança (hoje só e-mail está
