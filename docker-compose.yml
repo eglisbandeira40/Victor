@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hubfinance
+      POSTGRES_PASSWORD: hubfinance
+      POSTGRES_DB: hubfinance
+    ports:
+      - "5432:5432"
+    volumes:
+      - hubfinance_db_data:/var/lib/postgresql/data
+
+volumes:
+  hubfinance_db_data:

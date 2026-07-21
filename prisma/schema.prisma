@@ -1,0 +1,223 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  MEMBER
+}
+
+enum StatusConta {
+  PENDENTE
+  PAGO
+  ATRASADO
+  CANCELADO
+}
+
+enum TipoCobranca {
+  BOLETO
+  PIX
+}
+
+enum StatusCobranca {
+  PENDENTE
+  PAGO
+  VENCIDO
+  CANCELADO
+}
+
+enum CanalEnvio {
+  EMAIL
+  WHATSAPP
+  SMS
+}
+
+enum StatusEnvio {
+  ENVIADO
+  FALHA
+}
+
+enum StatusGateway {
+  NAO_CONFIGURADO
+  PENDENTE
+  ATIVO
+  REJEITADO
+}
+
+model Empresa {
+  id        String   @id @default(cuid())
+  nome      String
+  cnpj      String?
+  email     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Sub-conta no processador white-label por trás do "Gateway HubFinance".
+  // O cliente da empresa nunca vê o nome do processador - apenas HubFinance.
+  gatewayStatus    StatusGateway @default(NAO_CONFIGURADO)
+  gatewayAccountId String?
+  gatewayApiKey    String?
+  gatewayWalletId  String?
+
+  users           User[]
+  clientes        Cliente[]
+  contasPagar     ContaPagar[]
+  contasReceber   ContaReceber[]
+  reguasCobranca  ReguaCobranca[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(ADMIN)
+  createdAt    DateTime @default(now())
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@index([empresaId])
+}
+
+model Cliente {
+  id                String   @id @default(cuid())
+  nome              String
+  documento         String?
+  email             String?
+  telefone          String?
+  gatewayCustomerId String?
+  createdAt         DateTime @default(now())
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  contasReceber ContaReceber[]
+
+  @@index([empresaId])
+}
+
+model ContaPagar {
+  id              String      @id @default(cuid())
+  descricao       String
+  categoria       String?
+  fornecedor      String?
+  valor           Decimal     @db.Decimal(12, 2)
+  dataVencimento  DateTime
+  dataPagamento   DateTime?
+  status          StatusConta @default(PENDENTE)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@index([empresaId])
+  @@index([empresaId, status])
+}
+
+model ContaReceber {
+  id              String      @id @default(cuid())
+  descricao       String
+  valor           Decimal     @db.Decimal(12, 2)
+  dataVencimento  DateTime
+  dataRecebimento DateTime?
+  status          StatusConta @default(PENDENTE)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  clienteId String
+  cliente   Cliente @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+
+  reguaCobrancaId String?
+  reguaCobranca   ReguaCobranca? @relation(fields: [reguaCobrancaId], references: [id])
+
+  cobrancas Cobranca[]
+  envios    EnvioCobranca[]
+
+  @@index([empresaId])
+  @@index([empresaId, status])
+}
+
+model Cobranca {
+  id              String         @id @default(cuid())
+  publicToken     String         @unique @default(cuid())
+  tipo            TipoCobranca
+  status          StatusCobranca @default(PENDENTE)
+  gatewayProvider String         @default("ASAAS")
+  gatewayId       String?
+  linkPagamento   String?
+  linhaDigitavel  String?
+  qrCode          String?
+  qrCodeImagem    String?
+  dataEmissao     DateTime       @default(now())
+  dataVencimento  DateTime
+  dataPagamento   DateTime?
+
+  contaReceberId String
+  contaReceber   ContaReceber @relation(fields: [contaReceberId], references: [id], onDelete: Cascade)
+
+  @@index([contaReceberId])
+  @@index([gatewayId])
+}
+
+model ReguaCobranca {
+  id        String   @id @default(cuid())
+  nome      String
+  ativo     Boolean  @default(true)
+  padrao    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  etapas        ReguaCobrancaEtapa[]
+  contasReceber ContaReceber[]
+
+  @@index([empresaId])
+}
+
+model ReguaCobrancaEtapa {
+  id                String     @id @default(cuid())
+  ordem             Int
+  diasOffset        Int
+  canal             CanalEnvio @default(EMAIL)
+  assunto           String
+  mensagemTemplate  String
+
+  reguaCobrancaId String
+  reguaCobranca   ReguaCobranca @relation(fields: [reguaCobrancaId], references: [id], onDelete: Cascade)
+
+  envios EnvioCobranca[]
+
+  @@index([reguaCobrancaId])
+}
+
+model EnvioCobranca {
+  id            String      @id @default(cuid())
+  canal         CanalEnvio
+  destinatario  String
+  status        StatusEnvio
+  erro          String?
+  enviadoEm     DateTime    @default(now())
+
+  contaReceberId String
+  contaReceber   ContaReceber @relation(fields: [contaReceberId], references: [id], onDelete: Cascade)
+
+  etapaId String
+  etapa   ReguaCobrancaEtapa @relation(fields: [etapaId], references: [id], onDelete: Cascade)
+
+  @@index([contaReceberId])
+  @@unique([contaReceberId, etapaId])
+}
