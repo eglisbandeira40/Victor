@@ -15,7 +15,10 @@ function headers(): Record<string, string> {
   };
 }
 
-/** Cria o customer no Asaas na primeira cobranca desse comerciante, ou reaproveita o que ja existe. */
+/**
+ * Cria o customer no Asaas na primeira cobranca desse comerciante, ou reaproveita o que ja existe.
+ * O Asaas exige CPF/CNPJ pra cobranca Pix - so chamar depois de confirmar que merchant.cpfCnpj existe.
+ */
 export async function createOrGetAsaasCustomer(merchant: MerchantRow): Promise<string> {
   if (merchant.asaasCustomerId) return merchant.asaasCustomerId;
 
@@ -24,6 +27,7 @@ export async function createOrGetAsaasCustomer(merchant: MerchantRow): Promise<s
     headers: headers(),
     body: JSON.stringify({
       name: merchant.businessName ?? formatPhoneDisplay(merchant.whatsappPhone),
+      cpfCnpj: merchant.cpfCnpj,
       mobilePhone: merchant.whatsappPhone,
       externalReference: merchant.id,
       notificationDisabled: true,

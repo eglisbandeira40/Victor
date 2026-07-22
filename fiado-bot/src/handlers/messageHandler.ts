@@ -13,6 +13,7 @@ import {
   backfillBusinessNameIfMissing,
   setBusinessName,
   cachePendingPix,
+  setCpfCnpj,
 } from "../domain/merchants.js";
 import { createPixCharge } from "../asaas/client.js";
 import {
@@ -145,6 +146,14 @@ function staticTrialEndedMessage(): string {
 async function buildTrialEndedMessage(merchant: MerchantRow): Promise<string> {
   if (!env.ASAAS_API_KEY) return staticTrialEndedMessage();
 
+  if (!merchant.cpfCnpj) {
+    await setPendingAction(merchant.id, { type: "awaiting_cpf_cnpj" });
+    return (
+      "⏰ Seu período de teste do Fiado acabou.\n\n" +
+      "Pra gerar seu Pix automático, preciso do seu CPF ou CNPJ (só números, sem ponto nem traço). Me manda aqui que eu já gero a cobrança certinha."
+    );
+  }
+
   const cachedValid =
     merchant.pendingPixPayload && merchant.pendingPixExpiresAt && merchant.pendingPixExpiresAt.getTime() > Date.now();
 
@@ -178,6 +187,30 @@ async function actorSuffix(merchant: { whatsappPhone: string }, actorPhone: stri
   if (actorPhone === merchant.whatsappPhone) return "";
   const name = await getMemberName(actorPhone);
   return ` _(lançado por ${name ?? "funcionário"})_`;
+}
+
+function parseCpfCnpj(text: string): string | null {
+  const digits = text.replace(/\D/g, "");
+  if (digits.length === 11 || digits.length === 14) return digits;
+  return null;
+}
+
+async function handlePendingCpfCnpjReply(merchant: MerchantRow, merchantPhone: string, text: string): Promise<void> {
+  const cpfCnpj = parseCpfCnpj(text);
+
+  if (!cpfCnpj) {
+    await sendWhatsAppText(
+      merchantPhone,
+      "Não entendi 🤔 Me manda só os números do CPF (11 dígitos) ou CNPJ (14 dígitos), sem ponto nem traço."
+    );
+    return;
+  }
+
+  await setCpfCnpj(merchant.id, cpfCnpj);
+  await setPendingAction(merchant.id, null);
+
+  const updatedMerchant: MerchantRow = { ...merchant, cpfCnpj, pendingAction: null };
+  await sendWhatsAppText(merchantPhone, await buildTrialEndedMessage(updatedMerchant));
 }
 
 function parseInstallmentCount(text: string): number | null {
@@ -870,6 +903,11 @@ export async function handleInboundMessage(message: WhatsAppInboundMessage, prof
     if (isNew) {
       await sendWhatsAppText(merchantPhone, WELCOME_MESSAGE);
       await notifyAdminOfNewMerchant(merchant);
+    }
+
+    if (merchant.pendingAction?.type === "awaiting_cpf_cnpj") {
+      await handlePendingCpfCnpjReply(merchant, merchantPhone, bodyText ?? "");
+      return;
     }
 
     if (merchant.plan === "blocked") {

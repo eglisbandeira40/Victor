@@ -119,8 +119,9 @@ Ver [`src/db/schema.ts`](./src/db/schema.ts) (Drizzle) e as migrations em [`src/
   mas conta na carteira de clientes), `trial_ends_at` (7 dias após o cadastro), `plan_activated_at`
   (quando virou pagante/vitalício pela última vez — carteira de clientes / faturamento), `asaas_customer_id`,
   `pending_pix_payload` + `pending_pix_expires_at` (cache da última cobrança Pix gerada, ver "Pagamento
-  automático (Asaas)"), `pending_action` (jsonb; guarda uma pergunta em aberto do bot pro comerciante,
-  ex: "quantas parcelas?")
+  automático (Asaas)"), `cpf_cnpj` (exigido pelo Asaas pra criar cobrança Pix, coletado só quando o
+  trial vence e o pagamento automático está ativo), `pending_action` (jsonb; guarda uma pergunta em
+  aberto do bot pro comerciante, ex: "quantas parcelas?")
 - `merchant_members` — funcionário autorizado a lançar fiado na conta do comerciante: `merchant_id`, `phone`
   (único — não pode ser o mesmo número de outra conta própria nem de outro funcionário), `name`
 - `customers` — cliente do comerciante: `name`, `phone`, `installments`, `balance_reset_at`
@@ -189,18 +190,25 @@ Desativado por padrão (cai pro fluxo manual com `PIX_KEY`/`SUPPORT_CONTACT`). P
 
 Fluxo quando ativo:
 
-1. Quando o trial vence, o Fiado cria (ou reaproveita, se ainda válida) um customer +
-   cobrança Pix no Asaas pro comerciante ([`src/asaas/client.ts`](./src/asaas/client.ts)), e manda o
-   código copia-e-cola pelo WhatsApp — a cobrança fica cacheada em `merchants.pending_pix_payload`
-   por até 3 dias, pra não gerar uma cobrança nova a cada mensagem enquanto ele estiver bloqueado
-2. O comerciante paga direto do banco dele, sem precisar mandar comprovante
-3. O Asaas notifica o Fiado via webhook (`POST /webhooks/asaas`,
+1. Quando o trial vence, se o comerciante ainda não tem `cpf_cnpj` salvo (o Asaas exige isso pra
+   criar cobrança Pix), o Fiado pergunta o CPF/CNPJ primeiro (`pendingAction: awaiting_cpf_cnpj`)
+   antes de qualquer outra coisa
+2. Com o CPF/CNPJ em mãos, cria (ou reaproveita, se ainda válida) um customer + cobrança Pix no Asaas
+   ([`src/asaas/client.ts`](./src/asaas/client.ts)), e manda o código copia-e-cola pelo WhatsApp — a
+   cobrança fica cacheada em `merchants.pending_pix_payload` por até 3 dias, pra não gerar uma
+   cobrança nova a cada mensagem enquanto ele estiver bloqueado
+3. O comerciante paga direto do banco dele, sem precisar mandar comprovante
+4. O Asaas notifica o Fiado via webhook (`POST /webhooks/asaas`,
    [`src/routes/asaasWebhook.ts`](./src/routes/asaasWebhook.ts)) quando o pagamento confirma
-4. O Fiado libera o acesso automaticamente, avisa o comerciante e te notifica pelo WhatsApp — sem
+5. O Fiado libera o acesso automaticamente, avisa o comerciante e te notifica pelo WhatsApp — sem
    precisar rodar `/internal/set-plan` na mão
 
 Se a chamada ao Asaas falhar por qualquer motivo (fora do ar, etc.), o Fiado cai automaticamente pro
 texto fixo de `PIX_KEY`/`SUPPORT_CONTACT` pra não travar o comerciante sem resposta nenhuma.
+
+Um pagamento recebido numa chave Pix estática (sem `externalReference`) não é reconciliado
+automaticamente — o webhook loga um aviso ("sem externalReference") e nada acontece; libera esse caso
+manualmente via `/internal/set-plan`.
 
 ### Comando por voz
 
@@ -225,7 +233,7 @@ transcrever nada.
 ### Banco de dados
 
 Rode as migrations de [`src/db/migrations/`](./src/db/migrations/), em ordem (`0001_init.sql` até
-`0010_asaas_customer_id.sql`, e o que vier depois), no console/SQL editor do seu Postgres. Assim que houver
+`0011_cpf_cnpj.sql`, e o que vier depois), no console/SQL editor do seu Postgres. Assim que houver
 uma `DATABASE_URL` acessível localmente, `npm run db:generate` / `npm run db:migrate` (drizzle-kit)
 assumem esse papel a partir da próxima migration.
 

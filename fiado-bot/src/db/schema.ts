@@ -27,7 +27,8 @@ export type PendingAction =
       matchedCustomerName: string | null;
     }
   | { type: "awaiting_business_name" }
-  | { type: "awaiting_voice_confirmation"; intent: FiadoIntent; transcript: string };
+  | { type: "awaiting_voice_confirmation"; intent: FiadoIntent; transcript: string }
+  | { type: "awaiting_cpf_cnpj" };
 
 export const merchants = pgTable("merchants", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -39,6 +40,8 @@ export const merchants = pgTable("merchants", {
   planActivatedAt: timestamp("plan_activated_at", { withTimezone: true }),
   /** ID do customer no Asaas - criado na primeira cobranca Pix gerada pra esse comerciante. */
   asaasCustomerId: text("asaas_customer_id"),
+  /** CPF/CNPJ (so digitos) - o Asaas exige pra criar cobranca Pix, pedido na primeira vez que precisa. */
+  cpfCnpj: text("cpf_cnpj"),
   /** Copia-e-cola da ultima cobranca Pix gerada (cache, pra nao criar cobranca nova a cada mensagem). */
   pendingPixPayload: text("pending_pix_payload"),
   pendingPixExpiresAt: timestamp("pending_pix_expires_at", { withTimezone: true }),

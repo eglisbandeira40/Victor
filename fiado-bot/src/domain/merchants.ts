@@ -79,6 +79,10 @@ export async function setAsaasCustomerId(merchantId: string, asaasCustomerId: st
   await db.update(merchants).set({ asaasCustomerId, updatedAt: new Date() }).where(eq(merchants.id, merchantId));
 }
 
+export async function setCpfCnpj(merchantId: string, cpfCnpj: string): Promise<void> {
+  await db.update(merchants).set({ cpfCnpj, updatedAt: new Date() }).where(eq(merchants.id, merchantId));
+}
+
 /** Cacheia o copia-e-cola da cobranca Pix gerada, pra reaproveitar em vez de criar cobranca nova a cada mensagem. */
 export async function cachePendingPix(merchantId: string, payload: string, expiresAt: Date): Promise<void> {
   await db
