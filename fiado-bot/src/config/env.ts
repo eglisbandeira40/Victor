@@ -23,8 +23,18 @@ const envSchema = z.object({
   SUPPORT_CONTACT: z.string().default("o suporte do Fiado"),
 
   // Chave Pix mostrada direto na mensagem de trial vencido, pra pagar sem precisar chamar o suporte
-  // primeiro. Com ela preenchida, a mensagem mostra a chave + valor; sem ela, cai pro SUPPORT_CONTACT.
+  // primeiro. So usada se ASAAS_API_KEY nao estiver configurada (fallback manual).
   PIX_KEY: z.string().optional(),
+
+  // Opcional: com essa key, o Fiado gera cobranca Pix automatica (via Asaas) quando o trial vence e
+  // libera o acesso sozinho quando o webhook de pagamento confirmado chegar. Sem ela, cai pro PIX_KEY
+  // (manual) ou SUPPORT_CONTACT. Pega em asaas.com > Configuracoes > Integracoes > API Key.
+  ASAAS_API_KEY: z.string().optional(),
+
+  // Token que voce escolhe e configura tambem no painel do Asaas (Configuracoes > Integracoes >
+  // Webhooks > Token de autenticacao) - valida que o webhook realmente veio do Asaas.
+  // Obrigatorio se ASAAS_API_KEY estiver preenchida.
+  ASAAS_WEBHOOK_TOKEN: z.string().optional(),
 
   // Numero do WhatsApp do admin/dono do Fiado (so digitos, com codigo do pais, sem "+"). Esse numero
   // tem fluxo proprio (menu admin) e recebe aviso de comerciante novo e de trial vencendo.

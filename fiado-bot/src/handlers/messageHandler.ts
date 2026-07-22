@@ -12,7 +12,9 @@ import {
   findMerchantById,
   backfillBusinessNameIfMissing,
   setBusinessName,
+  cachePendingPix,
 } from "../domain/merchants.js";
+import { createPixCharge } from "../asaas/client.js";
 import {
   findOwnerMerchantIdByMemberPhone,
   addMerchantMember,
@@ -118,7 +120,9 @@ async function sendHelpMenu(merchantPhone: string): Promise<void> {
   });
 }
 
-function buildTrialEndedMessage(): string {
+const PIX_CHARGE_VALIDITY_DAYS = 3;
+
+function staticTrialEndedMessage(): string {
   if (env.PIX_KEY) {
     return (
       "⏰ Seu período de teste do Fiado acabou.\n\n" +
@@ -132,6 +136,41 @@ function buildTrialEndedMessage(): string {
     "⏰ Seu período de teste do Fiado acabou.\n\n" +
     `Pra continuar usando, entre em contato: ${env.SUPPORT_CONTACT}. Assim que confirmar o pagamento, libero seu acesso de novo.`
   );
+}
+
+/**
+ * Se o Asaas estiver configurado, gera (ou reaproveita, se ainda valida) uma cobranca Pix automatica -
+ * o pagamento libera o Fiado sozinho via webhook. Sem Asaas, cai pro texto fixo (PIX_KEY/SUPPORT_CONTACT).
+ */
+async function buildTrialEndedMessage(merchant: MerchantRow): Promise<string> {
+  if (!env.ASAAS_API_KEY) return staticTrialEndedMessage();
+
+  const cachedValid =
+    merchant.pendingPixPayload && merchant.pendingPixExpiresAt && merchant.pendingPixExpiresAt.getTime() > Date.now();
+
+  try {
+    const payload = cachedValid
+      ? merchant.pendingPixPayload!
+      : await (async () => {
+          const charge = await createPixCharge(merchant, PLAN_PRICE_CENTS);
+          const expiresAt = new Date(Date.now() + PIX_CHARGE_VALIDITY_DAYS * 24 * 60 * 60 * 1000);
+          await cachePendingPix(merchant.id, charge.payload, expiresAt);
+          return charge.payload;
+        })();
+
+    return (
+      "⏰ Seu período de teste do Fiado acabou.\n\n" +
+      `Pra continuar, faz um Pix de *${formatBRL(PLAN_PRICE_CENTS)}* com o código abaixo (copia e cola no seu banco):\n\n` +
+      `${payload}\n\n` +
+      "Assim que o pagamento cair, libero seu acesso automaticamente — não precisa mandar comprovante."
+    );
+  } catch (err) {
+    logger.error("Erro ao gerar cobranca Pix via Asaas, caindo pro fallback", {
+      error: err instanceof Error ? err.message : err,
+      merchantId: merchant.id,
+    });
+    return staticTrialEndedMessage();
+  }
 }
 
 /** Sufixo " (lançado por Fulano)" quando quem mandou a mensagem nao e o numero dono da conta. */
@@ -834,13 +873,13 @@ export async function handleInboundMessage(message: WhatsAppInboundMessage, prof
     }
 
     if (merchant.plan === "blocked") {
-      await sendWhatsAppText(merchantPhone, buildTrialEndedMessage());
+      await sendWhatsAppText(merchantPhone, await buildTrialEndedMessage(merchant));
       return;
     }
 
     if (merchant.plan === "trial" && merchant.trialEndsAt && merchant.trialEndsAt.getTime() <= Date.now()) {
       await setMerchantPlan(merchant.id, "blocked");
-      await sendWhatsAppText(merchantPhone, buildTrialEndedMessage());
+      await sendWhatsAppText(merchantPhone, await buildTrialEndedMessage(merchant));
       return;
     }
 

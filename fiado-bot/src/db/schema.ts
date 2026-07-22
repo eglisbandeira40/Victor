@@ -37,6 +37,11 @@ export const merchants = pgTable("merchants", {
   trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }).default(sql`now() + interval '7 days'`),
   /** Quando o comerciante virou pagante (plan = "active") pela ultima vez - carteira de clientes / faturamento. */
   planActivatedAt: timestamp("plan_activated_at", { withTimezone: true }),
+  /** ID do customer no Asaas - criado na primeira cobranca Pix gerada pra esse comerciante. */
+  asaasCustomerId: text("asaas_customer_id"),
+  /** Copia-e-cola da ultima cobranca Pix gerada (cache, pra nao criar cobranca nova a cada mensagem). */
+  pendingPixPayload: text("pending_pix_payload"),
+  pendingPixExpiresAt: timestamp("pending_pix_expires_at", { withTimezone: true }),
   pendingAction: jsonb("pending_action").$type<PendingAction | null>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

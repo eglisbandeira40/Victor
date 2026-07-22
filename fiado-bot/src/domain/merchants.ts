@@ -74,3 +74,15 @@ export async function backfillBusinessNameIfMissing(merchantId: string, profileN
 export async function setBusinessName(merchantId: string, businessName: string): Promise<void> {
   await db.update(merchants).set({ businessName, updatedAt: new Date() }).where(eq(merchants.id, merchantId));
 }
+
+export async function setAsaasCustomerId(merchantId: string, asaasCustomerId: string): Promise<void> {
+  await db.update(merchants).set({ asaasCustomerId, updatedAt: new Date() }).where(eq(merchants.id, merchantId));
+}
+
+/** Cacheia o copia-e-cola da cobranca Pix gerada, pra reaproveitar em vez de criar cobranca nova a cada mensagem. */
+export async function cachePendingPix(merchantId: string, payload: string, expiresAt: Date): Promise<void> {
+  await db
+    .update(merchants)
+    .set({ pendingPixPayload: payload, pendingPixExpiresAt: expiresAt, updatedAt: new Date() })
+    .where(eq(merchants.id, merchantId));
+}

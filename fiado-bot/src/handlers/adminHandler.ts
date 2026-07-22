@@ -17,6 +17,7 @@ import {
 } from "../domain/adminStats.js";
 import { sendWhatsAppText, sendWhatsAppList, type InteractiveListSection } from "../whatsapp/client.js";
 import { formatPhoneDisplay } from "../utils/phone.js";
+import { formatBRL } from "../utils/currency.js";
 import { env } from "../config/env.js";
 import { logger } from "../utils/logger.js";
 import type { WhatsAppInboundMessage } from "../whatsapp/types.js";
@@ -122,6 +123,24 @@ export async function notifyAdminOfNewMerchant(merchant: MerchantRow): Promise<v
     );
   } catch (err) {
     logger.error("Falha ao notificar admin sobre novo comerciante", {
+      error: err instanceof Error ? err.message : err,
+      merchantId: merchant.id,
+    });
+  }
+}
+
+/** Avisa o admin quando um pagamento Pix via Asaas confirma e libera o comerciante automaticamente. */
+export async function notifyAdminOfPixPayment(merchant: MerchantRow, valueCents: number): Promise<void> {
+  const name = merchant.businessName ?? "(sem nome)";
+  const phone = formatPhoneDisplay(merchant.whatsappPhone);
+
+  try {
+    await sendWhatsAppText(
+      env.ADMIN_WHATSAPP_PHONE,
+      `💰 *Pix confirmado — liberado automaticamente*\n\n${name} — ${phone}\nValor: ${formatBRL(valueCents)}`
+    );
+  } catch (err) {
+    logger.error("Falha ao notificar admin sobre Pix confirmado", {
       error: err instanceof Error ? err.message : err,
       merchantId: merchant.id,
     });

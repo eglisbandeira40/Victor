@@ -45,10 +45,10 @@ Implementado até agora:
 - [x] Lembrete diário de vencimento (job agendado, 8h) — no dia em que uma dívida vence, o Fiado avisa
       o comerciante com o valor e o link `wa.me` de cobrança pronto, uma única vez por dívida
 - [x] Trial de 7 dias + bloqueio — comerciante novo ganha 7 dias grátis (`trial_ends_at`); depois disso,
-      se ninguém tiver liberado o acesso (`plan = active`), o Fiado para de processar comandos. Se
-      `PIX_KEY` estiver configurada, a mensagem já mostra a chave e o valor do plano direto, sem precisar
-      chamar o suporte antes; senão, cai pro contato de `SUPPORT_CONTACT`. Liberação hoje é manual, via
-      `/internal/set-plan` — você confirma o Pix na sua conta e roda o comando
+      se ninguém tiver liberado o acesso (`plan = active`), o Fiado para de processar comandos. Com
+      `ASAAS_API_KEY` configurada, gera cobrança Pix real e **libera sozinho** quando o pagamento
+      confirma (ver "Pagamento automático (Asaas)"); sem ela, cai pro `PIX_KEY` (mostra a chave direto)
+      ou `SUPPORT_CONTACT`, e a liberação é manual via `/internal/set-plan`
 - [x] Menu admin (`ADMIN_WHATSAPP_PHONE`) — o dono do Fiado acompanha comerciantes novos, trials
       vencendo e o resumo geral direto pelo próprio WhatsApp, e recebe aviso automático de cada
       cadastro novo e de trial acabando
@@ -117,8 +117,10 @@ Ver [`src/db/schema.ts`](./src/db/schema.ts) (Drizzle) e as migrations em [`src/
 - `merchants` — dono do comércio: `whatsapp_phone` (único), `business_name`, `plan`
   (`trial` | `active` | `lifetime` | `blocked` — `lifetime` nunca bloqueia e fica fora do cálculo de MRR/faturamento,
   mas conta na carteira de clientes), `trial_ends_at` (7 dias após o cadastro), `plan_activated_at`
-  (quando virou pagante/vitalício pela última vez — carteira de clientes / faturamento), `pending_action`
-  (jsonb; guarda uma pergunta em aberto do bot pro comerciante, ex: "quantas parcelas?")
+  (quando virou pagante/vitalício pela última vez — carteira de clientes / faturamento), `asaas_customer_id`,
+  `pending_pix_payload` + `pending_pix_expires_at` (cache da última cobrança Pix gerada, ver "Pagamento
+  automático (Asaas)"), `pending_action` (jsonb; guarda uma pergunta em aberto do bot pro comerciante,
+  ex: "quantas parcelas?")
 - `merchant_members` — funcionário autorizado a lançar fiado na conta do comerciante: `merchant_id`, `phone`
   (único — não pode ser o mesmo número de outra conta própria nem de outro funcionário), `name`
 - `customers` — cliente do comerciante: `name`, `phone`, `installments`, `balance_reset_at`
@@ -145,6 +147,7 @@ Ver [`src/db/schema.ts`](./src/db/schema.ts) (Drizzle) e as migrations em [`src/
 | POST   | `/internal/set-plan`          | Libera/bloqueia/marca vitalício um comerciante manualmente (`?token=...&phone=5511999998888&plan=trial\|active\|lifetime\|blocked`) |
 | POST   | `/internal/send-message`      | Manda uma mensagem de texto avulsa pra um número (`?token=...&phone=5511999998888`, body JSON `{"text":"..."}`) |
 | POST   | `/internal/ask-business-name` | Pergunta o nome pro comerciante e aguarda a resposta (`?token=...&phone=5511999998888`) — pra preencher quem ainda tá "(sem nome)" |
+| POST   | `/webhooks/asaas`             | Recebe confirmação de pagamento Pix do Asaas e libera o comerciante automaticamente (protegido por `ASAAS_WEBHOOK_TOKEN`) |
 
 ## Rodando localmente
 
@@ -168,8 +171,36 @@ Ver [`.env.example`](./.env.example). Resumo:
 - `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` — console.anthropic.com
 - `ADMIN_WHATSAPP_PHONE` — número do dono do Fiado (só dígitos, com código do país). Ver seção "Menu admin"
 - `OPENAI_API_KEY` — opcional. Ativa o comando por voz (ver seção "Comando por voz"). Sem ela, áudio fica desativado
-- `SUPPORT_CONTACT`, `PIX_KEY` — mostrados quando o trial vence. Com `PIX_KEY` preenchida, o comerciante
-  já vê a chave + valor do plano direto na mensagem, sem precisar chamar o suporte antes
+- `SUPPORT_CONTACT`, `PIX_KEY` — mostrados quando o trial vence, só usados se `ASAAS_API_KEY` (abaixo)
+  estiver vazia. Com `PIX_KEY` preenchida, o comerciante já vê a chave + valor do plano na mensagem
+- `ASAAS_API_KEY`, `ASAAS_WEBHOOK_TOKEN` — opcional. Ativa cobrança Pix automática (ver seção
+  "Pagamento automático (Asaas)"). Sem elas, cai pro `PIX_KEY`/`SUPPORT_CONTACT` manual
+
+### Pagamento automático (Asaas)
+
+Desativado por padrão (cai pro fluxo manual com `PIX_KEY`/`SUPPORT_CONTACT`). Pra ativar:
+
+1. Cria/usa uma conta em [asaas.com](https://www.asaas.com) e pega a **API Key** em
+   Configurações → Integrações → API Key
+2. Escolhe um token secreto qualquer e cadastra em **Configurações → Integrações → Webhooks** no
+   Asaas, apontando pra `https://SEU_DOMINIO/webhooks/asaas`, com esse mesmo token no campo
+   "Token de autenticação"
+3. Preenche `ASAAS_API_KEY` e `ASAAS_WEBHOOK_TOKEN` (mesmo valor do passo 2) no ambiente
+
+Fluxo quando ativo:
+
+1. Quando o trial vence, o Fiado cria (ou reaproveita, se ainda válida) um customer +
+   cobrança Pix no Asaas pro comerciante ([`src/asaas/client.ts`](./src/asaas/client.ts)), e manda o
+   código copia-e-cola pelo WhatsApp — a cobrança fica cacheada em `merchants.pending_pix_payload`
+   por até 3 dias, pra não gerar uma cobrança nova a cada mensagem enquanto ele estiver bloqueado
+2. O comerciante paga direto do banco dele, sem precisar mandar comprovante
+3. O Asaas notifica o Fiado via webhook (`POST /webhooks/asaas`,
+   [`src/routes/asaasWebhook.ts`](./src/routes/asaasWebhook.ts)) quando o pagamento confirma
+4. O Fiado libera o acesso automaticamente, avisa o comerciante e te notifica pelo WhatsApp — sem
+   precisar rodar `/internal/set-plan` na mão
+
+Se a chamada ao Asaas falhar por qualquer motivo (fora do ar, etc.), o Fiado cai automaticamente pro
+texto fixo de `PIX_KEY`/`SUPPORT_CONTACT` pra não travar o comerciante sem resposta nenhuma.
 
 ### Comando por voz
 
@@ -194,7 +225,7 @@ transcrever nada.
 ### Banco de dados
 
 Rode as migrations de [`src/db/migrations/`](./src/db/migrations/), em ordem (`0001_init.sql` até
-`0009_plan_activated_at.sql`, e o que vier depois), no console/SQL editor do seu Postgres. Assim que houver
+`0010_asaas_customer_id.sql`, e o que vier depois), no console/SQL editor do seu Postgres. Assim que houver
 uma `DATABASE_URL` acessível localmente, `npm run db:generate` / `npm run db:migrate` (drizzle-kit)
 assumem esse papel a partir da próxima migration.
 
