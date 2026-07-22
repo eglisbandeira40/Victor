@@ -17,6 +17,8 @@ const envSchema = z.object({
   WHATSAPP_TEMPLATE_WEEKLY_SUMMARY: z.string().optional(),
   WHATSAPP_TEMPLATE_COLLECTION_ALERT: z.string().optional(),
   WHATSAPP_TEMPLATE_DUE_REMINDER: z.string().optional(),
+  WHATSAPP_TEMPLATE_PLAN_RENEWAL_WARNING: z.string().optional(),
+  WHATSAPP_TEMPLATE_PLAN_EXPIRED: z.string().optional(),
 
   // Contato de suporte mostrado quando o trial de um comerciante vence (usado so se PIX_KEY estiver vazia).
   // Ex: "wa.me/5511999998888" (WhatsApp) ou "suporte@fiado.app" (e-mail).

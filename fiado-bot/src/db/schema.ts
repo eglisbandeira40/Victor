@@ -45,6 +45,8 @@ export const merchants = pgTable("merchants", {
   /** Copia-e-cola da ultima cobranca Pix gerada (cache, pra nao criar cobranca nova a cada mensagem). */
   pendingPixPayload: text("pending_pix_payload"),
   pendingPixExpiresAt: timestamp("pending_pix_expires_at", { withTimezone: true }),
+  /** Marca que ja avisamos "seu plano vence em 3 dias" nesse ciclo - evita mandar de novo todo dia. Resetado a cada reativacao. */
+  planRenewalWarningSentAt: timestamp("plan_renewal_warning_sent_at", { withTimezone: true }),
   pendingAction: jsonb("pending_action").$type<PendingAction | null>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

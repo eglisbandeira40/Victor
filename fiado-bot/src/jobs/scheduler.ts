@@ -3,6 +3,7 @@ import { runWeeklySummaryBroadcast } from "./weeklySummaryJob.js";
 import { runWeeklyCollectionCheck } from "./weeklyCollectionReminder.js";
 import { runDueDateReminders } from "./dueDateReminderJob.js";
 import { runAdminTrialAlert } from "./adminTrialAlertJob.js";
+import { runPlanRenewalWarnings, runPlanExpirations } from "./planRenewalJob.js";
 import { logger } from "../utils/logger.js";
 
 export async function runWeeklyJobs(): Promise<void> {
@@ -38,11 +39,21 @@ export function startScheduler(): void {
           error: err instanceof Error ? err.message : err,
         });
       });
+      runPlanRenewalWarnings().catch((err) => {
+        logger.error("Erro no job diario de aviso de renovacao de plano", {
+          error: err instanceof Error ? err.message : err,
+        });
+      });
+      runPlanExpirations().catch((err) => {
+        logger.error("Erro no job diario de vencimento de ciclo pago", {
+          error: err instanceof Error ? err.message : err,
+        });
+      });
     },
     { timezone: "America/Sao_Paulo" }
   );
 
   logger.info(
-    "Scheduler iniciado: lembrete de vencimento + alerta de trials pro admin todo dia as 8h, resumo + cobranca semanal toda segunda as 9h (America/Sao_Paulo)"
+    "Scheduler iniciado: lembrete de vencimento + alerta de trials pro admin + renovacao de plano todo dia as 8h, resumo + cobranca semanal toda segunda as 9h (America/Sao_Paulo)"
   );
 }

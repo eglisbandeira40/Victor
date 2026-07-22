@@ -117,11 +117,13 @@ Ver [`src/db/schema.ts`](./src/db/schema.ts) (Drizzle) e as migrations em [`src/
 - `merchants` — dono do comércio: `whatsapp_phone` (único), `business_name`, `plan`
   (`trial` | `active` | `lifetime` | `blocked` — `lifetime` nunca bloqueia e fica fora do cálculo de MRR/faturamento,
   mas conta na carteira de clientes), `trial_ends_at` (7 dias após o cadastro), `plan_activated_at`
-  (quando virou pagante/vitalício pela última vez — carteira de clientes / faturamento), `asaas_customer_id`,
+  (quando virou pagante/vitalício pela última vez — carteira de clientes / faturamento, e também o
+  início do ciclo de 30 dias do plano pago), `asaas_customer_id`,
   `pending_pix_payload` + `pending_pix_expires_at` (cache da última cobrança Pix gerada, ver "Pagamento
   automático (Asaas)"), `cpf_cnpj` (exigido pelo Asaas pra criar cobrança Pix, coletado só quando o
-  trial vence e o pagamento automático está ativo), `pending_action` (jsonb; guarda uma pergunta em
-  aberto do bot pro comerciante, ex: "quantas parcelas?")
+  trial vence e o pagamento automático está ativo), `plan_renewal_warning_sent_at` (controla o aviso de
+  "vence em 3 dias" do ciclo mensal, zera a cada reativação), `pending_action` (jsonb; guarda uma
+  pergunta em aberto do bot pro comerciante, ex: "quantas parcelas?")
 - `merchant_members` — funcionário autorizado a lançar fiado na conta do comerciante: `merchant_id`, `phone`
   (único — não pode ser o mesmo número de outra conta própria nem de outro funcionário), `name`
 - `customers` — cliente do comerciante: `name`, `phone`, `installments`, `balance_reset_at`
@@ -144,8 +146,9 @@ Ver [`src/db/schema.ts`](./src/db/schema.ts) (Drizzle) e as migrations em [`src/
 | POST   | `/internal/run-weekly-check`  | Dispara os jobs semanais (resumo + cobrança) na hora (`?token=WHATSAPP_VERIFY_TOKEN`), pra teste/depuração |
 | POST   | `/internal/run-due-check`     | Dispara o lembrete diário de vencimento na hora (`?token=WHATSAPP_VERIFY_TOKEN`), pra teste/depuração |
 | POST   | `/internal/run-admin-check`   | Dispara o alerta diário de trials vencendo pro admin na hora (`?token=WHATSAPP_VERIFY_TOKEN`), pra teste/depuração |
+| POST   | `/internal/run-plan-renewal-check` | Dispara o aviso de renovação (3 dias antes) + o bloqueio/cobrança de quem passou dos 30 dias, na hora (`?token=WHATSAPP_VERIFY_TOKEN`), pra teste/depuração |
 | GET    | `/internal/merchants`         | Lista todos os comerciantes com plano/trial em JSON (`?token=WHATSAPP_VERIFY_TOKEN`), consulta pontual fora do WhatsApp |
-| POST   | `/internal/set-plan`          | Libera/bloqueia/marca vitalício um comerciante manualmente (`?token=...&phone=5511999998888&plan=trial\|active\|lifetime\|blocked`) |
+| POST   | `/internal/set-plan`          | Libera/bloqueia/marca vitalício um comerciante manualmente (`?token=...&phone=5511999998888&plan=trial\|active\|lifetime\|blocked`) — ao virar `active`/`lifetime`, já manda a mensagem de confirmação pro comerciante |
 | POST   | `/internal/send-message`      | Manda uma mensagem de texto avulsa pra um número (`?token=...&phone=5511999998888`, body JSON `{"text":"..."}`) |
 | POST   | `/internal/ask-business-name` | Pergunta o nome pro comerciante e aguarda a resposta (`?token=...&phone=5511999998888`) — pra preencher quem ainda tá "(sem nome)" |
 | POST   | `/webhooks/asaas`             | Recebe confirmação de pagamento Pix do Asaas e libera o comerciante automaticamente (protegido por `ASAAS_WEBHOOK_TOKEN`) |
@@ -210,6 +213,23 @@ Um pagamento recebido numa chave Pix estática (sem `externalReference`) não é
 automaticamente — o webhook loga um aviso ("sem externalReference") e nada acontece; libera esse caso
 manualmente via `/internal/set-plan`.
 
+#### Renovação mensal (plano `active`)
+
+O plano pago dura 30 dias a partir de `plan_activated_at`. Um job diário
+([`src/jobs/planRenewalJob.ts`](./src/jobs/planRenewalJob.ts), roda junto com o lembrete de vencimento
+às 8h) cuida do ciclo:
+
+- **3 dias antes de completar 30 dias**: avisa o comerciante que o plano tá quase vencendo (uma vez só
+  por ciclo, controlado por `merchants.plan_renewal_warning_sent_at` — zera a cada reativação)
+- **Ao completar 30 dias**: bloqueia o comerciante (`plan = "blocked"`) e já dispara a mesma lógica de
+  cobrança automática do trial (CPF/CNPJ se faltar, depois cobrança Pix real)
+
+Essas duas mensagens são proativas (o comerciante pode não ter mandado mensagem nas últimas 24h), então
+o ideal é configurar `WHATSAPP_TEMPLATE_PLAN_RENEWAL_WARNING` e `WHATSAPP_TEMPLATE_PLAN_EXPIRED` como
+Message Templates aprovados pela Meta — sem eles, cai pra texto livre, que só entrega se o comerciante
+tiver falado com o bot nas últimas 24h (mesma limitação do lembrete de vencimento). Testa na hora com
+`POST /internal/run-plan-renewal-check?token=...`.
+
 ### Comando por voz
 
 Desativado por padrão. Pra ativar: cria uma key em platform.openai.com/api-keys e preenche
@@ -233,7 +253,7 @@ transcrever nada.
 ### Banco de dados
 
 Rode as migrations de [`src/db/migrations/`](./src/db/migrations/), em ordem (`0001_init.sql` até
-`0011_cpf_cnpj.sql`, e o que vier depois), no console/SQL editor do seu Postgres. Assim que houver
+`0012_plan_renewal_warning.sql`, e o que vier depois), no console/SQL editor do seu Postgres. Assim que houver
 uma `DATABASE_URL` acessível localmente, `npm run db:generate` / `npm run db:migrate` (drizzle-kit)
 assumem esse papel a partir da próxima migration.
 

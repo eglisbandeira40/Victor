@@ -57,10 +57,24 @@ export async function findMerchantById(id: string) {
   return found ?? null;
 }
 
-/** plan: "trial" | "active" | "lifetime" | "blocked". Vira "active"/"lifetime" grava plan_activated_at (carteira/faturamento). */
+/**
+ * plan: "trial" | "active" | "lifetime" | "blocked". Vira "active"/"lifetime" grava plan_activated_at
+ * (carteira/faturamento, e tambem o inicio do ciclo de 30 dias pra renovacao) e zera o aviso de
+ * renovacao do ciclo anterior.
+ */
 export async function setMerchantPlan(merchantId: string, plan: string) {
-  const extra = plan === "active" || plan === "lifetime" ? { planActivatedAt: new Date() } : {};
+  const extra =
+    plan === "active" || plan === "lifetime"
+      ? { planActivatedAt: new Date(), planRenewalWarningSentAt: null }
+      : {};
   await db.update(merchants).set({ plan, updatedAt: new Date(), ...extra }).where(eq(merchants.id, merchantId));
+}
+
+export async function markPlanRenewalWarningSent(merchantId: string): Promise<void> {
+  await db
+    .update(merchants)
+    .set({ planRenewalWarningSentAt: new Date(), updatedAt: new Date() })
+    .where(eq(merchants.id, merchantId));
 }
 
 /** Preenche business_name com o nome de exibicao do WhatsApp pra merchant antigo que ainda esta "(sem nome)". */

@@ -123,10 +123,10 @@ async function sendHelpMenu(merchantPhone: string): Promise<void> {
 
 const PIX_CHARGE_VALIDITY_DAYS = 3;
 
-function staticTrialEndedMessage(): string {
+function staticBlockedMessage(headerText: string): string {
   if (env.PIX_KEY) {
     return (
-      "⏰ Seu período de teste do Fiado acabou.\n\n" +
+      `${headerText}\n\n` +
       `Pra continuar, faz um Pix de *${formatBRL(PLAN_PRICE_CENTS)}* pra essa chave (aleatória):\n` +
       `*${env.PIX_KEY}*\n\n` +
       "Depois só manda o comprovante aqui que a gente libera seu acesso rapidinho."
@@ -134,7 +134,7 @@ function staticTrialEndedMessage(): string {
   }
 
   return (
-    "⏰ Seu período de teste do Fiado acabou.\n\n" +
+    `${headerText}\n\n` +
     `Pra continuar usando, entre em contato: ${env.SUPPORT_CONTACT}. Assim que confirmar o pagamento, libero seu acesso de novo.`
   );
 }
@@ -142,14 +142,15 @@ function staticTrialEndedMessage(): string {
 /**
  * Se o Asaas estiver configurado, gera (ou reaproveita, se ainda valida) uma cobranca Pix automatica -
  * o pagamento libera o Fiado sozinho via webhook. Sem Asaas, cai pro texto fixo (PIX_KEY/SUPPORT_CONTACT).
+ * `headerText` muda a primeira linha pra caber tanto no fim do trial quanto no fim do ciclo mensal pago.
  */
-async function buildTrialEndedMessage(merchant: MerchantRow): Promise<string> {
-  if (!env.ASAAS_API_KEY) return staticTrialEndedMessage();
+async function buildBlockedMessage(merchant: MerchantRow, headerText: string): Promise<string> {
+  if (!env.ASAAS_API_KEY) return staticBlockedMessage(headerText);
 
   if (!merchant.cpfCnpj) {
     await setPendingAction(merchant.id, { type: "awaiting_cpf_cnpj" });
     return (
-      "⏰ Seu período de teste do Fiado acabou.\n\n" +
+      `${headerText}\n\n` +
       "Pra gerar seu Pix automático, preciso do seu CPF ou CNPJ (só números, sem ponto nem traço). Me manda aqui que eu já gero a cobrança certinha."
     );
   }
@@ -168,7 +169,7 @@ async function buildTrialEndedMessage(merchant: MerchantRow): Promise<string> {
         })();
 
     return (
-      "⏰ Seu período de teste do Fiado acabou.\n\n" +
+      `${headerText}\n\n` +
       `Pra continuar, faz um Pix de *${formatBRL(PLAN_PRICE_CENTS)}* com o código abaixo (copia e cola no seu banco):\n\n` +
       `${payload}\n\n` +
       "Assim que o pagamento cair, libero seu acesso automaticamente — não precisa mandar comprovante."
@@ -178,8 +179,17 @@ async function buildTrialEndedMessage(merchant: MerchantRow): Promise<string> {
       error: err instanceof Error ? err.message : err,
       merchantId: merchant.id,
     });
-    return staticTrialEndedMessage();
+    return staticBlockedMessage(headerText);
   }
+}
+
+async function buildTrialEndedMessage(merchant: MerchantRow): Promise<string> {
+  return buildBlockedMessage(merchant, "⏰ Seu período de teste do Fiado acabou.");
+}
+
+/** Mesma logica de cobranca do trial, mas pro fim do ciclo mensal de quem ja e pagante (30 dias). */
+export async function buildPlanRenewalMessage(merchant: MerchantRow): Promise<string> {
+  return buildBlockedMessage(merchant, "⏰ Seu plano do Fiado venceu.");
 }
 
 /** Sufixo " (lançado por Fulano)" quando quem mandou a mensagem nao e o numero dono da conta. */

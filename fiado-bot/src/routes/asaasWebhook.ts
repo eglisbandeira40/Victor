@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { env } from "../config/env.js";
 import { findMerchantById, setMerchantPlan } from "../domain/merchants.js";
+import { PLAN_RENEWAL_DAYS } from "../domain/planRenewal.js";
 import { notifyAdminOfPixPayment } from "../handlers/adminHandler.js";
 import { sendWhatsAppText } from "../whatsapp/client.js";
 import { formatBRL } from "../utils/currency.js";
@@ -63,9 +64,12 @@ export async function registerAsaasWebhookRoutes(app: FastifyInstance) {
 
       await setMerchantPlan(merchant.id, "active");
 
+      const renewsAt = new Date(Date.now() + PLAN_RENEWAL_DAYS * 24 * 60 * 60 * 1000);
+      const renewsAtLabel = renewsAt.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+
       await sendWhatsAppText(
         merchant.whatsappPhone,
-        `✅ Pagamento confirmado! Seu acesso ao Fiado foi renovado — ${formatBRL(valueCents)} recebidos. Obrigado por continuar com a gente 🧾`
+        `✅ Pagamento confirmado! Seu acesso ao Fiado foi renovado — ${formatBRL(valueCents)} recebidos. Válido até *${renewsAtLabel}*. Obrigado por continuar com a gente 🧾`
       );
 
       await notifyAdminOfPixPayment(merchant, valueCents);

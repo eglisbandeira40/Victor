@@ -3,8 +3,10 @@ import { env } from "../config/env.js";
 import { runWeeklyJobs } from "../jobs/scheduler.js";
 import { runDueDateReminders } from "../jobs/dueDateReminderJob.js";
 import { runAdminTrialAlert } from "../jobs/adminTrialAlertJob.js";
+import { runPlanRenewalWarnings, runPlanExpirations } from "../jobs/planRenewalJob.js";
 import { findMerchantByPhone, setMerchantPlan, setPendingAction } from "../domain/merchants.js";
 import { getAllMerchantsOrdered } from "../domain/adminStats.js";
+import { PLAN_RENEWAL_DAYS } from "../domain/planRenewal.js";
 import { sendWhatsAppText } from "../whatsapp/client.js";
 import { logger } from "../utils/logger.js";
 
@@ -69,6 +71,25 @@ export async function registerInternalRoutes(app: FastifyInstance) {
     }
   });
 
+  app.post("/internal/run-plan-renewal-check", async (request: FastifyRequest, reply: FastifyReply) => {
+    const query = request.query as Record<string, string>;
+
+    if (query.token !== env.WHATSAPP_VERIFY_TOKEN) {
+      return reply.status(403).send("Forbidden");
+    }
+
+    try {
+      await runPlanRenewalWarnings();
+      await runPlanExpirations();
+      return reply.send({ ok: true });
+    } catch (err) {
+      logger.error("Erro ao rodar renovacao de plano manualmente", {
+        error: err instanceof Error ? err.message : err,
+      });
+      return reply.status(500).send({ ok: false });
+    }
+  });
+
   // Lista todos os comerciantes com plano/trial - consulta pontual pra acompanhar fora do WhatsApp.
   app.get("/internal/merchants", async (request: FastifyRequest, reply: FastifyReply) => {
     const query = request.query as Record<string, string>;
@@ -117,6 +138,25 @@ export async function registerInternalRoutes(app: FastifyInstance) {
       }
 
       await setMerchantPlan(merchant.id, query.plan);
+
+      if (query.plan === "active" || query.plan === "lifetime") {
+        const message =
+          query.plan === "lifetime"
+            ? "🎉 Seu plano do Fiado agora é *vitalício* — nunca mais vence. Obrigado por fazer parte disso com a gente! 🧾"
+            : (() => {
+                const renewsAt = new Date(Date.now() + PLAN_RENEWAL_DAYS * 24 * 60 * 60 * 1000);
+                const renewsAtLabel = renewsAt.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+                return `✅ Pagamento confirmado! Seu acesso ao Fiado foi renovado e é válido até *${renewsAtLabel}*. Obrigado por continuar com a gente 🧾`;
+              })();
+
+        await sendWhatsAppText(merchant.whatsappPhone, message).catch((err) =>
+          logger.error("Erro ao notificar comerciante sobre liberacao manual do plano", {
+            merchantId: merchant.id,
+            error: err instanceof Error ? err.message : err,
+          })
+        );
+      }
+
       return reply.send({ ok: true, merchantId: merchant.id, plan: query.plan });
     } catch (err) {
       logger.error("Erro ao definir plano manualmente", { error: err instanceof Error ? err.message : err });
