@@ -38,6 +38,7 @@ import {
 import { createPayment, getLastPaymentForCustomer, updatePaymentAmount } from "../domain/payments.js";
 import { getCustomerHistory, getMemberActivity } from "../domain/history.js";
 import { getMerchantSummary, formatSummaryMessage } from "../domain/summary.js";
+import { PLAN_PRICE_CENTS } from "../domain/adminStats.js";
 import { handleAdminMessage, notifyAdminOfNewMerchant } from "./adminHandler.js";
 import { getMonthlyStatement, formatMonthlyStatement } from "../domain/monthlyStatement.js";
 import { OVERDUE_THRESHOLD_DAYS, buildOverdueList, buildCollectionMessage } from "../jobs/weeklyCollectionReminder.js";
@@ -118,6 +119,15 @@ async function sendHelpMenu(merchantPhone: string): Promise<void> {
 }
 
 function buildTrialEndedMessage(): string {
+  if (env.PIX_KEY) {
+    return (
+      "⏰ Seu período de teste do Fiado acabou.\n\n" +
+      `Pra continuar, faz um Pix de *${formatBRL(PLAN_PRICE_CENTS)}* pra essa chave (aleatória):\n` +
+      `*${env.PIX_KEY}*\n\n` +
+      "Depois só manda o comprovante aqui que a gente libera seu acesso rapidinho."
+    );
+  }
+
   return (
     "⏰ Seu período de teste do Fiado acabou.\n\n" +
     `Pra continuar usando, entre em contato: ${env.SUPPORT_CONTACT}. Assim que confirmar o pagamento, libero seu acesso de novo.`

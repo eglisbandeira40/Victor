@@ -18,9 +18,13 @@ const envSchema = z.object({
   WHATSAPP_TEMPLATE_COLLECTION_ALERT: z.string().optional(),
   WHATSAPP_TEMPLATE_DUE_REMINDER: z.string().optional(),
 
-  // Contato de suporte mostrado quando o trial de um comerciante vence.
+  // Contato de suporte mostrado quando o trial de um comerciante vence (usado so se PIX_KEY estiver vazia).
   // Ex: "wa.me/5511999998888" (WhatsApp) ou "suporte@fiado.app" (e-mail).
   SUPPORT_CONTACT: z.string().default("o suporte do Fiado"),
+
+  // Chave Pix mostrada direto na mensagem de trial vencido, pra pagar sem precisar chamar o suporte
+  // primeiro. Com ela preenchida, a mensagem mostra a chave + valor; sem ela, cai pro SUPPORT_CONTACT.
+  PIX_KEY: z.string().optional(),
 
   // Numero do WhatsApp do admin/dono do Fiado (so digitos, com codigo do pais, sem "+"). Esse numero
   // tem fluxo proprio (menu admin) e recebe aviso de comerciante novo e de trial vencendo.

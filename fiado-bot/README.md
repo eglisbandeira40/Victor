@@ -45,8 +45,10 @@ Implementado até agora:
 - [x] Lembrete diário de vencimento (job agendado, 8h) — no dia em que uma dívida vence, o Fiado avisa
       o comerciante com o valor e o link `wa.me` de cobrança pronto, uma única vez por dívida
 - [x] Trial de 7 dias + bloqueio — comerciante novo ganha 7 dias grátis (`trial_ends_at`); depois disso,
-      se ninguém tiver liberado o acesso (`plan = active`), o Fiado para de processar comandos e explica
-      como continuar. Liberação hoje é manual, via `/internal/set-plan` (Pix fora do Fiado, você libera)
+      se ninguém tiver liberado o acesso (`plan = active`), o Fiado para de processar comandos. Se
+      `PIX_KEY` estiver configurada, a mensagem já mostra a chave e o valor do plano direto, sem precisar
+      chamar o suporte antes; senão, cai pro contato de `SUPPORT_CONTACT`. Liberação hoje é manual, via
+      `/internal/set-plan` — você confirma o Pix na sua conta e roda o comando
 - [x] Menu admin (`ADMIN_WHATSAPP_PHONE`) — o dono do Fiado acompanha comerciantes novos, trials
       vencendo e o resumo geral direto pelo próprio WhatsApp, e recebe aviso automático de cada
       cadastro novo e de trial acabando
@@ -166,6 +168,8 @@ Ver [`.env.example`](./.env.example). Resumo:
 - `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` — console.anthropic.com
 - `ADMIN_WHATSAPP_PHONE` — número do dono do Fiado (só dígitos, com código do país). Ver seção "Menu admin"
 - `OPENAI_API_KEY` — opcional. Ativa o comando por voz (ver seção "Comando por voz"). Sem ela, áudio fica desativado
+- `SUPPORT_CONTACT`, `PIX_KEY` — mostrados quando o trial vence. Com `PIX_KEY` preenchida, o comerciante
+  já vê a chave + valor do plano direto na mensagem, sem precisar chamar o suporte antes
 
 ### Comando por voz
 
