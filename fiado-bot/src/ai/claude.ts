@@ -39,9 +39,10 @@ const RECORD_DEBT_TOOL: Anthropic.Tool = {
       due_date: {
         type: "string",
         description:
-          "Data de vencimento da divida, SO SE mencionada na mensagem (ex: 'vence dia 20', 'pagar em 10 " +
-          "dias', 'vence sexta'). Formato obrigatorio YYYY-MM-DD. Calcule a partir da data de hoje informada " +
-          "no system prompt se for uma referencia relativa. Nao invente uma data se nao for mencionada.",
+          "Data de vencimento/promessa de pagamento da divida, SO SE mencionada na mensagem (ex: 'vence dia " +
+          "20', 'pagar em 10 dias', 'vence sexta', 'vai pagar dia 20/08', 'vai pagar no dia 20'). Formato " +
+          "obrigatorio YYYY-MM-DD. Calcule a partir da data de hoje informada no system prompt se for uma " +
+          "referencia relativa ou so o dia/mes sem ano. Nao invente uma data se nao for mencionada.",
       },
     },
     required: ["customer_name", "amount"],
@@ -288,6 +289,8 @@ O comerciante manda mensagens curtas e informais em portugues, tipo:
 "Ze Carlos, 45,00, o almoco de hoje" -> nova divida
 "Ze Carlos, 2, agua" -> nova divida com valor inteiro (2 = R$ 2,00, nao R$ 0,02 nem R$ 200,00)
 "Ze Carlos, 45,00, almoco, vence dia 20" -> nova divida com data de vencimento
+"Cida me deve 5,00, vai pagar dia 20/08" -> nova divida com data de vencimento (20/08 desse ano, ou do
+proximo ano se essa data ja passou)
 "cadastrar Ze Carlos, telefone 11987654321" -> cadastro/atualizacao de cliente
 "telefone do Ze Carlos, 11987654321" -> cadastro/atualizacao de cliente
 "Ze Carlos pagou 20,00" ou "Ze Carlos pagou 4" -> pagamento

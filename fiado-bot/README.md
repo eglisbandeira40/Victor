@@ -263,6 +263,7 @@ assumem esse papel a partir da próxima migration.
 |----------------------------------------------------------|-----------|
 | `Zé Carlos, 45,00, o almoço de hoje`                      | Registra dívida, soma ao saldo do cliente (aceita `2`, `45`, `45,00` ou `45.50`) |
 | `Zé Carlos, 45,00, almoço, vence dia 20`                  | Igual acima, mas guarda a data de vencimento dessa dívida |
+| `Cida me deve 5,00, vai pagar dia 20/08`                  | Mesma coisa, forma livre — aceita "vence dia", "vai pagar dia", "vence em 10 dias", "vence sexta" |
 | `cadastrar Zé Carlos, telefone 11987654321`               | Cadastra/atualiza o telefone |
 | `telefone do Zé Carlos, 11987654321`                      | Mesma coisa, forma curta |
 | *(compartilhar um contato do WhatsApp)*                   | Fiado lê nome+telefone do cartão e pergunta antes de salvar |
