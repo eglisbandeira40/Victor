@@ -24,6 +24,25 @@ Deck institucional/comercial em português (11 slides, 16:9) sobre o ácido hipo
 10. Catálogo técnico (ativo, tempo de ação, duração, modo de aplicar)
 11. Conclusão e chamada para ação
 
+## Logo da marca no rodapé
+
+Salve o logo nesta pasta como `logo-nebutech.svg` (ideal) ou `logo-nebutech.png`
+e rode o gerador de novo: ele entra no rodapé de todos os slides, à esquerda,
+alinhado com a numeração.
+
+- **Nitidez:** se o arquivo tiver menos de 1600 px de largura, ele é reamostrado
+  com Lanczos e recebe uma máscara de nitidez leve. Isso aumenta a definição sem
+  mexer em cor, proporção ou em qualquer elemento do logo. Um SVG dispensa o
+  tratamento — sai perfeito em qualquer tamanho.
+- **Encaixe:** o logo é ajustado dentro de uma caixa de 1,35 × 0,5 pol
+  preservando a proporção, então qualquer versão (horizontal, quadrada ou
+  empilhada) cabe sem quebrar o layout.
+- **Fundos escuros:** nos slides 1, 4, 7 e 11 o logo entra sobre uma placa
+  branca arredondada — assim o azul-marinho da marca continua legível sem
+  precisar de uma versão invertida do arquivo.
+
+Sem o arquivo, o rodapé permanece na linha de texto original.
+
 ## Movimento
 
 O deck tem transição entre slides e animação de entrada nos elementos:

@@ -77,6 +77,51 @@ const ICON_SET = {
   bio: Md.MdBiotech,
 };
 
+/* ────────────────────────── LOGO DA MARCA (RODAPÉ) ──────────────────────────
+ * Coloque o arquivo do logo nesta pasta como "logo-nebutech.<ext>".
+ * Formatos aceitos: svg (ideal — vetorial), png, webp, jpg.
+ *
+ * Se a imagem for de baixa resolução (print de tela), ela é reamostrada para
+ * 1600 px de largura com Lanczos e recebe uma máscara de nitidez leve. Isso
+ * apenas aumenta a definição: nenhuma cor, proporção ou elemento é alterado.
+ * Sem o arquivo, o rodapé continua sendo a linha de texto original.
+ */
+
+const LOGO_ARQS = [
+  "logo-nebutech.svg",
+  "logo-nebutech.png",
+  "logo-nebutech.webp",
+  "logo-nebutech.jpg",
+  "logo-nebutech.jpeg",
+];
+const LOGO_LARGURA_ALVO = 1600; // px de trabalho para o logo ficar nítido
+let LOGO = null; // { data, ratio }
+
+async function prepararLogo() {
+  const arq = LOGO_ARQS.map((f) => path.join(__dirname, f)).find((f) => fs.existsSync(f));
+  if (!arq) {
+    console.warn("• Logo não encontrado — rodapé permanece em texto.");
+    console.warn("  Salve o arquivo como apresentacao/logo-nebutech.png (ou .svg) e rode de novo.");
+    return;
+  }
+
+  const meta = await sharp(arq).metadata();
+  let pipe = sharp(arq, { density: 600 }); // density só afeta a rasterização de SVG
+
+  if (meta.width && meta.width < LOGO_LARGURA_ALVO) {
+    pipe = pipe
+      .resize({ width: LOGO_LARGURA_ALVO, kernel: "lanczos3" })
+      .sharpen({ sigma: 0.9, m1: 0.5, m2: 2.5 }); // máscara de nitidez suave
+  }
+
+  const buf = await pipe.png().toBuffer();
+  const fin = await sharp(buf).metadata();
+  LOGO = { data: "image/png;base64," + buf.toString("base64"), ratio: fin.height / fin.width };
+  console.log(
+    `• Logo: ${path.basename(arq)} ${meta.width}×${meta.height} → ${fin.width}×${fin.height}px`
+  );
+}
+
 const ICONS = {}; // "nome@COR" -> base64
 
 async function buildIcons(colors) {
@@ -257,18 +302,56 @@ function footer(s, n, opts = {}) {
   return still(() => footerRaw(s, n, opts));
 }
 
+/* Caixa do logo no rodapé: o arquivo é encaixado dentro dela preservando a
+ * proporção, e alinhado pela base. Assim qualquer versão do logo (horizontal,
+ * quadrada ou empilhada) cabe na faixa sem colidir com o conteúdo acima. */
+const LOGO_W_MAX = 1.35; // largura máxima (pol)
+const LOGO_H_MAX = 0.5; // altura máxima (pol)
+const LOGO_BASE = 7.23; // borda inferior do logo — centraliza com a numeração
+
+function caixaLogo() {
+  const w = Math.min(LOGO_W_MAX, LOGO_H_MAX / LOGO.ratio);
+  const h = w * LOGO.ratio;
+  return { w, h, y: LOGO_BASE - h };
+}
+
+// Marca no rodapé. Em fundo escuro o logo vai sobre uma placa branca, para
+// preservar as cores originais da marca sem precisar de uma versão invertida.
+function marca(s, { x, y, w, dark }) {
+  const h = w * LOGO.ratio;
+  const pad = 0.13;
+  if (dark) {
+    s.addShape(pres.ShapeType.roundRect, {
+      x: x - pad,
+      y: y - pad * 0.8,
+      w: w + pad * 2,
+      h: h + pad * 1.6,
+      rectRadius: 0.06,
+      fill: { color: C.white },
+      line: { type: "none" },
+    });
+  }
+  s.addImage({ data: LOGO.data, x, y, w, h });
+  return h;
+}
+
 function footerRaw(s, n, { dark = false } = {}) {
-  s.addText("Ácido Hipocloroso · Guia técnico e comercial", {
-    x: M,
-    y: 6.86,
-    w: 5,
-    h: 0.3,
-    fontFace: F.body,
-    fontSize: 9.5,
-    color: dark ? "6E9199" : C.muted,
-    margin: 0,
-    valign: "middle",
-  });
+  if (LOGO) {
+    const b = caixaLogo();
+    marca(s, { x: M, y: b.y, w: b.w, dark });
+  } else {
+    s.addText("Ácido Hipocloroso · Guia técnico e comercial", {
+      x: M,
+      y: 6.86,
+      w: 5,
+      h: 0.3,
+      fontFace: F.body,
+      fontSize: 9.5,
+      color: dark ? "6E9199" : C.muted,
+      margin: 0,
+      valign: "middle",
+    });
+  }
   s.addText(String(n).padStart(2, "0"), {
     x: W - M - 1,
     y: 6.86,
@@ -457,12 +540,18 @@ function buildSlides() {
     chip(s, { x: M + i * 1.86, y: 5.72, w: 1.7, h: 0.44, text: t, line: "2C6672", color: C.onDark, size: 11.5 });
   });
 
-  still(() =>
-    s.addText("Bandeira Soluções · Guia do Ácido Hipocloroso", {
-      x: M, y: 6.86, w: 8, h: 0.3,
-      fontFace: F.body, fontSize: 10, color: "6E9199", margin: 0, valign: "middle",
-    })
-  );
+  // Na capa a marca aparece maior; sem o arquivo, mantém-se a linha de crédito.
+  still(() => {
+    if (LOGO) {
+      const b = caixaLogo();
+      marca(s, { x: M, y: b.y, w: b.w, dark: true });
+    } else {
+      s.addText("Bandeira Soluções · Guia do Ácido Hipocloroso", {
+        x: M, y: 6.86, w: 8, h: 0.3,
+        fontFace: F.body, fontSize: 10, color: "6E9199", margin: 0, valign: "middle",
+      });
+    }
+  });
   s.addNotes(
     "Abertura. Posicionar o HClO como um desinfetante de uso geral, seguro e eficaz — o único antisséptico que respeita a pele e os olhos."
   );
@@ -733,7 +822,7 @@ function buildSlides() {
   });
 
   s.addText("Ação comprovada contra vírus envelopados e bactérias de alta relevância sanitária.", {
-    x: M, y: 6.4, w: CW, h: 0.34,
+    x: M, y: 6.22, w: CW, h: 0.32,
     fontFace: F.body, fontSize: 13, italic: true, color: C.mint, margin: 0, valign: "middle",
   });
 
@@ -871,7 +960,7 @@ function buildSlides() {
   });
 
   s.addText("Preencher concentração, tempos e instruções com os dados da ficha técnica oficial do produto.", {
-    x: M, y: 6.42, w: CW, h: 0.32,
+    x: M, y: 6.26, w: CW, h: 0.3,
     fontFace: F.body, fontSize: 10.5, italic: true, color: C.muted, margin: 0, valign: "middle",
   });
 
@@ -1052,6 +1141,7 @@ const OUT = path.join(__dirname, "Acido-Hipocloroso-Apresentacao.pptx");
 
 (async () => {
   await buildIcons([C.teal, C.mint, C.deep, C.muted, C.white]);
+  await prepararLogo();
   buildSlides();
   await pres.writeFile({ fileName: OUT });
   await aplicarMovimento(OUT);
