@@ -17,18 +17,25 @@ const Md = require("react-icons/md");
 
 /* ─────────────────────────── SISTEMA DE DESIGN ─────────────────────────── */
 
+/* Paleta institucional derivada do logo NebuTech.
+ * Amostradas do próprio arquivo da marca: azul-marinho #0C2259 e verde #409942.
+ * O azul domina (fundos, títulos, ícones) e o verde entra como acento único. */
 const C = {
-  deep: "06282F", // fundo escuro (petróleo)
-  panel: "0C3A45", // cartão sobre fundo escuro
-  teal: "028090", // primária
-  seafoam: "00A896",
-  mint: "02C39A", // acento
+  deep: "0C2259", // azul-marinho da marca — fundos escuros
+  panel: "17356E", // cartão sobre o fundo escuro
+  teal: "17418C", // azul institucional — acento em fundo claro
+  seafoam: "2E5FB0", // azul de apoio (contornos)
+  mint: "4CB152", // verde da marca — acento
   white: "FFFFFF",
-  soft: "F1F7F8", // fundo claro alternativo
-  tint: "E7F2F3", // preenchimento de cartão claro
-  ink: "10262C", // texto principal
-  muted: "5E7A81", // texto secundário
-  onDark: "BCD6DA", // texto secundário sobre escuro
+  soft: "F3F6FB", // fundo claro alternativo
+  tint: "E4EAF6", // preenchimento de cartão claro
+  ink: "0E1B3A", // texto principal
+  muted: "5A6A8A", // texto secundário
+  onDark: "BFCCE6", // texto secundário sobre o azul-marinho
+  borda: "DDE4F3", // contorno de cartão claro
+  contorno: "3358A0", // contorno de chip sobre fundo escuro
+  onPrim: "DCE6F8", // texto sobre o azul primário
+  rodape: "8496B8", // rodapé sobre fundo escuro
 };
 
 const F = { head: "Arial", body: "Calibri" };
@@ -45,7 +52,7 @@ const cols = (n, gap) => {
 
 const shadow = (o = {}) => ({
   type: "outer",
-  color: o.color || "0B3A44",
+  color: o.color || C.deep,
   blur: o.blur || 14,
   offset: o.offset === undefined ? 3 : o.offset,
   angle: 90,
@@ -175,10 +182,66 @@ async function prepararLogo() {
 
   const buf = await pipe.png().toBuffer();
   const fin = await sharp(buf).metadata();
-  LOGO = { data: "image/png;base64," + buf.toString("base64"), ratio: fin.height / fin.width };
+
+  const [claro, escuro] = await versoesLogo(buf, fin);
+  LOGO = {
+    claro: "image/png;base64," + claro.toString("base64"),
+    escuro: "image/png;base64," + escuro.toString("base64"),
+    ratio: fin.height / fin.width,
+  };
   console.log(
-    `• Logo: ${path.basename(arq)} ${meta.width}×${meta.height} → ${fin.width}×${fin.height}px`
+    `• Logo: ${path.basename(arq)} ${meta.width}×${meta.height} → ${fin.width}×${fin.height}px` +
+      " (fundo removido + versão para fundo escuro)"
   );
+}
+
+/* Gera as duas versões usadas no rodapé:
+ *   claro  — cores originais da marca, fundo branco removido;
+ *   escuro — mesma arte com o azul-marinho invertido para branco e o verde
+ *            preservado, para uso sobre o fundo azul dos slides.
+ * O branco vira transparência pela cobertura de tinta de cada pixel, o que
+ * mantém as bordas suavizadas do desenho — sem serrilhado nem halo.
+ */
+async function versoesLogo(buf, meta) {
+  const { data, info } = await sharp(buf).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const { width: W, height: H } = info;
+  const claro = Buffer.alloc(W * H * 4);
+  const escuro = Buffer.alloc(W * H * 4);
+  const VERDE = [0x57, 0xbe, 0x5d]; // verde da marca, clareado para o fundo escuro
+
+  for (let p = 0; p < W * H; p++) {
+    const i = p * 4;
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+
+    // cobertura de tinta: 0 no branco do fundo, ~1 no traço cheio
+    const a = 1 - Math.min(r, g, b) / 255;
+    if (a < 0.02) continue; // fundo → transparente nas duas versões
+
+    // desfaz a mistura com o branco para recuperar a cor pura do traço
+    const pura = (c) => Math.max(0, Math.min(255, Math.round((c - 255 * (1 - a)) / a)));
+    const [pr, pg, pb] = [pura(r), pura(g), pura(b)];
+    const alfa = Math.round(a * 255);
+
+    claro[i] = pr;
+    claro[i + 1] = pg;
+    claro[i + 2] = pb;
+    claro[i + 3] = alfa;
+
+    const ehVerde = pg - Math.max(pr, pb) > 25;
+    const cor = ehVerde ? VERDE : [0xff, 0xff, 0xff];
+    escuro[i] = cor[0];
+    escuro[i + 1] = cor[1];
+    escuro[i + 2] = cor[2];
+    escuro[i + 3] = alfa;
+  }
+
+  const opts = { raw: { width: W, height: H, channels: 4 } };
+  return Promise.all([
+    sharp(claro, opts).png().toBuffer(),
+    sharp(escuro, opts).png().toBuffer(),
+  ]);
 }
 
 const ICONS = {}; // "nome@COR" -> base64
@@ -374,23 +437,11 @@ function caixaLogo() {
   return { w, h, y: LOGO_BASE - h };
 }
 
-// Marca no rodapé. Em fundo escuro o logo vai sobre uma placa branca, para
-// preservar as cores originais da marca sem precisar de uma versão invertida.
+// Marca no rodapé, sem moldura: fundo transparente nos dois casos, usando a
+// versão invertida quando o slide é escuro.
 function marca(s, { x, y, w, dark }) {
   const h = w * LOGO.ratio;
-  const pad = 0.13;
-  if (dark) {
-    s.addShape(pres.ShapeType.roundRect, {
-      x: x - pad,
-      y: y - pad * 0.8,
-      w: w + pad * 2,
-      h: h + pad * 1.6,
-      rectRadius: 0.06,
-      fill: { color: C.white },
-      line: { type: "none" },
-    });
-  }
-  s.addImage({ data: LOGO.data, x, y, w, h });
+  s.addImage({ data: dark ? LOGO.escuro : LOGO.claro, x, y, w, h });
   return h;
 }
 
@@ -406,7 +457,7 @@ function footerRaw(s, n, { dark = false } = {}) {
       h: 0.3,
       fontFace: F.body,
       fontSize: 9.5,
-      color: dark ? "6E9199" : C.muted,
+      color: dark ? C.rodape : C.muted,
       margin: 0,
       valign: "middle",
     });
@@ -440,7 +491,7 @@ function iconCardRaw(s, o) {
     h: o.h,
     rectRadius: 0.1,
     fill: { color: dark ? C.panel : o.fill || C.white },
-    line: dark ? { type: "none" } : { color: "DCE9EB", width: 1 },
+    line: dark ? { type: "none" } : { color: C.borda, width: 1 },
     shadow: dark ? undefined : shadow(),
   });
   const pad = 0.34;
@@ -596,7 +647,7 @@ function buildSlides() {
   );
 
   ["Seguro", "Eficaz", "Uso diário"].forEach((t, i) => {
-    chip(s, { x: M + i * 1.86, y: 5.72, w: 1.7, h: 0.44, text: t, line: "2C6672", color: C.onDark, size: 11.5 });
+    chip(s, { x: M + i * 1.86, y: 5.72, w: 1.7, h: 0.44, text: t, line: C.contorno, color: C.onDark, size: 11.5 });
   });
 
   // Na capa a marca aparece maior; sem o arquivo, mantém-se a linha de crédito.
@@ -607,7 +658,7 @@ function buildSlides() {
     } else {
       s.addText("Bandeira Soluções · Guia do Ácido Hipocloroso", {
         x: M, y: 6.86, w: 8, h: 0.3,
-        fontFace: F.body, fontSize: 10, color: "6E9199", margin: 0, valign: "middle",
+        fontFace: F.body, fontSize: 10, color: C.rodape, margin: 0, valign: "middle",
       });
     }
   });
@@ -758,7 +809,7 @@ function buildSlides() {
   group(() => {
   s.addShape(pres.ShapeType.roundRect, {
     x: g.x(0), y: 3.15, w: g.w, h: 2.95, rectRadius: 0.1,
-    fill: { color: C.white }, line: { color: "DCE9EB", width: 1 }, shadow: shadow(),
+    fill: { color: C.white }, line: { color: C.borda, width: 1 }, shadow: shadow(),
   });
   iconCircle(s, { x: g.x(0) + 0.42, y: 3.52, d: 0.62, fill: C.tint, icon: "layers", color: C.muted });
   s.addText("Higienizar", {
@@ -799,7 +850,7 @@ function buildSlides() {
     ],
     {
       x: g.x(1) + 0.44, y: 4.42, w: g.w - 0.88, h: 1.5,
-      fontFace: F.body, fontSize: 13.5, color: "DCF2F0", paraSpaceAfter: 8, margin: 0, valign: "top",
+      fontFace: F.body, fontSize: 13.5, color: C.onPrim, paraSpaceAfter: 8, margin: 0, valign: "top",
     }
   );
   });
@@ -875,7 +926,7 @@ function buildSlides() {
     b[2].forEach((t, j) => {
       chip(s, {
         x: x + 0.44, y: 4.42 + j * 0.56, w: g.w - 0.88, h: 0.46,
-        text: t, line: "2C6672", color: C.white, size: 12.5,
+        text: t, line: C.contorno, color: C.white, size: 12.5,
       });
     });
   });
@@ -940,7 +991,7 @@ function buildSlides() {
     group(() => {
       s.addShape(pres.ShapeType.roundRect, {
         x, y: 3.05, w: g.w, h: 2.05, rectRadius: 0.1,
-        fill: { color: C.white }, line: { color: "DCE9EB", width: 1 }, shadow: shadow(),
+        fill: { color: C.white }, line: { color: C.borda, width: 1 }, shadow: shadow(),
       });
       iconCircle(s, { x: x + 0.32, y: 3.3, d: 0.58, fill: C.tint, icon: p[0], color: C.teal });
       s.addText(p[1], {

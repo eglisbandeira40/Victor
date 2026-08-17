@@ -24,6 +24,14 @@ Deck institucional/comercial em português (11 slides, 16:9) sobre o ácido hipo
 10. Catálogo técnico (ativo, tempo de ação, duração, modo de aplicar)
 11. Conclusão e chamada para ação
 
+## Paleta
+
+Amostrada do próprio arquivo do logo: **azul-marinho `#0C2259`** e **verde
+`#409942`**. O azul domina (fundos escuros, títulos, ícones, cartões de
+destaque) e o verde entra como acento único — chips, círculos de ícone sobre
+fundo escuro e as linhas de destaque. Tudo vive nas constantes `C` no topo do
+script; trocar ali repinta o deck inteiro, inclusive os ícones.
+
 ## Logo da marca no rodapé
 
 Salve o logo nesta pasta como `logo-nebutech.svg` (ideal) ou `logo-nebutech.png`
@@ -37,9 +45,12 @@ alinhado com a numeração.
 - **Encaixe:** o logo é ajustado dentro de uma caixa de 1,35 × 0,5 pol
   preservando a proporção, então qualquer versão (horizontal, quadrada ou
   empilhada) cabe sem quebrar o layout.
-- **Fundos escuros:** nos slides 1, 4, 7 e 11 o logo entra sobre uma placa
-  branca arredondada — assim o azul-marinho da marca continua legível sem
-  precisar de uma versão invertida do arquivo.
+- **Fundo removido:** o branco do arquivo vira transparência pela cobertura de
+  tinta de cada pixel, o que preserva as bordas suavizadas do desenho.
+- **Fundos escuros:** nos slides 1, 4, 7 e 11 é usada uma versão invertida,
+  gerada automaticamente — o azul-marinho da marca vira branco e o verde é
+  preservado. Se a NebuTech tiver uma versão negativa oficial, ela é preferível:
+  salve como `logo-nebutech-negativo.png` e aponte no script.
 
 Sem o arquivo, o rodapé permanece na linha de texto original.
 
