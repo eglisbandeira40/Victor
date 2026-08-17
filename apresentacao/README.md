@@ -24,6 +24,20 @@ Deck institucional/comercial em português (11 slides, 16:9) sobre o ácido hipo
 10. Catálogo técnico (ativo, tempo de ação, duração, modo de aplicar)
 11. Conclusão e chamada para ação
 
+## Movimento
+
+O deck tem transição entre slides e animação de entrada nos elementos:
+
+- **Transições:** *push* para cima nos slides claros; *fade* nos slides escuros
+  (1, 4, 7 e 11), marcando as viradas de capítulo.
+- **Animação:** cada bloco entra subindo levemente com fade (~0,5 s), em cascata
+  de 0,13 s entre os blocos — título, texto de apoio e depois os cartões, na
+  ordem de leitura. Rodapé e numeração não animam.
+
+Os parâmetros ficam no bloco de pós-processamento do script (`STAGGER`, `DUR`,
+`RISE` e o mapa `TRANSICOES`). Para desligar o movimento, basta remover a
+chamada `aplicarMovimento(OUT)` no final do arquivo.
+
 ## Antes de apresentar
 
 Dois pontos precisam dos dados oficiais do produto — não foram inventados:
