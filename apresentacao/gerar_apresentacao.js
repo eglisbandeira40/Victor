@@ -244,22 +244,88 @@ async function versoesLogo(buf, meta) {
   ]);
 }
 
-const ICONS = {}; // "nome@COR" -> base64
+/* ─────────────────── ÍCONES: componente único e padronizado ─────────────────
+ * Todos os ícones do deck usam a mesma peça: um disco com gradiente do azul
+ * para o verde da marca e o glifo vazado em branco. Disco e glifo são
+ * rasterizados juntos, numa imagem só — é o que garante que o gradiente saia
+ * idêntico em todos os slides (o PowerPoint não preenche formas com gradiente
+ * pela via do gerador).
+ *
+ * Os ícones grandes e soltos das páginas de abertura e fecho não têm disco:
+ * neles o próprio traço recebe o gradiente, numa variação clareada para
+ * sobreviver ao fundo azul-marinho.
+ */
 
-async function buildIcons(colors) {
-  for (const [name, Comp] of Object.entries(ICON_SET)) {
-    for (const hex of colors) {
-      const svg = renderToStaticMarkup(
-        React.createElement(Comp, { size: 320, color: "#" + hex })
-      );
-      const png = await sharp(Buffer.from(svg)).resize(320, 320).png().toBuffer();
-      ICONS[`${name}@${hex}`] = "image/png;base64," + png.toString("base64");
-    }
-  }
+// Azul um pouco mais luminoso que o azul-marinho de fundo: é o que faz o disco
+// se destacar tanto no branco quanto sobre os cartões azuis dos slides escuros.
+const GRAD_DISCO = ["#2A63C4", "#46A94C"]; // azul → verde da marca
+const GRAD_TRACO = ["#57BE5D", "#3D7BE0"]; // verde → azul, clareados para fundo escuro
+const ICON_PX = 512; // resolução de rasterização
+const GLIFO = 0.48; // proporção do glifo dentro do disco
+
+const ICONS = {};
+
+function svgGradiente(id, cores, angulo = "x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\"") {
+  return (
+    `<linearGradient id="${id}" ${angulo}>` +
+    `<stop offset="0" stop-color="${cores[0]}"/>` +
+    `<stop offset="1" stop-color="${cores[1]}"/>` +
+    `</linearGradient>`
+  );
 }
 
-const ico = (name, hex) => {
-  const k = `${name}@${hex}`;
+/* Glifo do react-icons embutido como <svg> aninhado. A cor é aplicada direto
+ * no traço: o componente pinta via `currentColor` num style inline, e style não
+ * aceita referência a gradiente — trocando o token no markup, tanto uma cor
+ * chapada quanto um url(#gradiente) funcionam. */
+function glifoSvg(Comp, px, cor) {
+  return renderToStaticMarkup(React.createElement(Comp, { size: px }))
+    .replace(/\sstyle="[^"]*"/g, "")
+    .replace(/currentColor/g, cor);
+}
+
+async function buildIcons() {
+  for (const [name, Comp] of Object.entries(ICON_SET)) {
+    const R = ICON_PX / 2;
+    const g = Math.round(ICON_PX * GLIFO);
+    const off = Math.round((ICON_PX - g) / 2);
+
+    // 1. disco com gradiente + glifo branco
+    const disco =
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_PX}" height="${ICON_PX}" ` +
+      `viewBox="0 0 ${ICON_PX} ${ICON_PX}">` +
+      `<defs>${svgGradiente("g", GRAD_DISCO)}</defs>` +
+      `<circle cx="${R}" cy="${R}" r="${R}" fill="url(#g)"/>` +
+      `<g transform="translate(${off},${off})">${glifoSvg(Comp, g, "#FFFFFF")}</g>` +
+      `</svg>`;
+
+    // 2. glifo solto, com o traço em gradiente (sem disco)
+    const solto =
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_PX}" height="${ICON_PX}" ` +
+      `viewBox="0 0 ${ICON_PX} ${ICON_PX}">` +
+      `<defs>${svgGradiente("t", GRAD_TRACO)}</defs>` +
+      `<g transform="translate(0,0)" color="url(#t)">${glifoSvg(Comp, ICON_PX, "url(#t)")}</g>` +
+      `</svg>`;
+
+    ICONS[`disco@${name}`] =
+      "image/png;base64," + (await sharp(Buffer.from(disco)).png().toBuffer()).toString("base64");
+    ICONS[`solto@${name}`] =
+      "image/png;base64," + (await sharp(Buffer.from(solto)).png().toBuffer()).toString("base64");
+  }
+
+  // disco liso, sem glifo — base dos números da agenda e do fluxo
+  const R = ICON_PX / 2;
+  const liso =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_PX}" height="${ICON_PX}" ` +
+    `viewBox="0 0 ${ICON_PX} ${ICON_PX}">` +
+    `<defs>${svgGradiente("g", GRAD_DISCO)}</defs>` +
+    `<circle cx="${R}" cy="${R}" r="${R}" fill="url(#g)"/></svg>`;
+  ICONS["liso"] =
+    "image/png;base64," + (await sharp(Buffer.from(liso)).png().toBuffer()).toString("base64");
+}
+
+const ico = (tipo, name) => {
+  const k = name ? `${tipo}@${name}` : tipo;
   if (!ICONS[k]) throw new Error("Ícone não gerado: " + k);
   return ICONS[k];
 };
@@ -331,32 +397,18 @@ function iconCircle(s, o) {
   return group(() => iconCircleRaw(s, o));
 }
 
-function iconCircleRaw(s, { x, y, d, fill, icon, color, pad = 0.27 }) {
-  s.addShape(pres.ShapeType.ellipse, {
-    x,
-    y,
-    w: d,
-    h: d,
-    fill: { color: fill },
-    line: { type: "none" },
-  });
-  const p = d * pad;
-  s.addImage({ data: ico(icon, color), x: x + p, y: y + p, w: d - 2 * p, h: d - 2 * p });
+// Disco + glifo entram como uma peça só, idêntica em fundo claro e escuro.
+function iconCircleRaw(s, { x, y, d, icon }) {
+  s.addImage({ data: ico("disco", icon), x, y, w: d, h: d });
 }
 
 function numberBadge(s, o) {
   return group(() => numberBadgeRaw(s, o));
 }
 
-function numberBadgeRaw(s, { x, y, d, n, fill, color }) {
-  s.addShape(pres.ShapeType.ellipse, {
-    x,
-    y,
-    w: d,
-    h: d,
-    fill: { color },
-    line: { type: "none" },
-  });
+// Mesmo disco dos ícones, com o número vazado em branco.
+function numberBadgeRaw(s, { x, y, d, n }) {
+  s.addImage({ data: ico("liso"), x, y, w: d, h: d });
   s.addText(n, {
     x,
     y,
@@ -367,7 +419,7 @@ function numberBadgeRaw(s, { x, y, d, n, fill, color }) {
     fontFace: F.head,
     fontSize: 14,
     bold: true,
-    color: fill,
+    color: C.white,
     margin: 0,
   });
 }
@@ -622,7 +674,7 @@ function buildSlides() {
       x: 9.85, y: 2.4, w: 2.7, h: 2.7,
       fill: { color: C.mint, transparency: 88 }, line: { type: "none" },
     });
-    s.addImage({ data: ico("droplet", C.mint), x: 10.53, y: 3.08, w: 1.34, h: 1.34 });
+    s.addImage({ data: ico("solto", "droplet"), x: 10.53, y: 3.08, w: 1.34, h: 1.34 });
   });
 
   chip(s, { x: M, y: 1.35, w: 1.2, h: 0.4, text: "HClO", fill: C.mint, line: C.mint, color: C.deep, size: 13, font: "Cambria" });
@@ -1091,7 +1143,7 @@ function buildSlides() {
       x: 10.25, y: 2.15, w: 3.3, h: 3.3,
       fill: { color: C.mint, transparency: 86 }, line: { color: C.seafoam, width: 1.25 },
     });
-    s.addImage({ data: ico("shield", C.mint), x: 11.16, y: 3.06, w: 1.48, h: 1.48 });
+    s.addImage({ data: ico("solto", "shield"), x: 11.16, y: 3.06, w: 1.48, h: 1.48 });
   });
 
   eyebrow(s, "Conclusão", { y: 1.5, color: C.mint });
@@ -1250,7 +1302,7 @@ async function aplicarMovimento(arquivo) {
 const OUT = path.join(__dirname, "Acido-Hipocloroso-Apresentacao.pptx");
 
 (async () => {
-  await buildIcons([C.teal, C.mint, C.deep, C.muted, C.white]);
+  await buildIcons();
   await prepararLogo();
   buildSlides();
   await pres.writeFile({ fileName: OUT });

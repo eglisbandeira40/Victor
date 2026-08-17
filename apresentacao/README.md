@@ -32,6 +32,21 @@ destaque) e o verde entra como acento único — chips, círculos de ícone sobr
 fundo escuro e as linhas de destaque. Tudo vive nas constantes `C` no topo do
 script; trocar ali repinta o deck inteiro, inclusive os ícones.
 
+## Ícones
+
+Todos os ícones seguem um componente único: **disco com gradiente do azul
+(`#2A63C4`) para o verde (`#46A94C`) da marca, com o glifo vazado em branco**.
+Disco e glifo são rasterizados juntos, numa imagem só — é o que garante o
+gradiente idêntico em todos os slides, já que o PowerPoint não recebe
+preenchimento em gradiente pela via do gerador. Os números da agenda e do fluxo
+usam o mesmo disco, com o algarismo em branco.
+
+Os dois ícones grandes e soltos (capa e fecho) não têm disco: neles o próprio
+traço recebe o gradiente, numa variação clareada (`#57BE5D` → `#3D7BE0`) que
+sobrevive ao fundo azul-marinho.
+
+Ajustes ficam em `GRAD_DISCO`, `GRAD_TRACO` e `GLIFO` no topo do script.
+
 ## Logo da marca no rodapé
 
 Salve o logo nesta pasta como `logo-nebutech.svg` (ideal) ou `logo-nebutech.png`
