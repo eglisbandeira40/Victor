@@ -97,6 +97,55 @@ const LOGO_ARQS = [
 const LOGO_LARGURA_ALVO = 1600; // px de trabalho para o logo ficar nítido
 let LOGO = null; // { data, ratio }
 
+/* Recorte automático: se o arquivo for um print de tela, descarta a moldura —
+ * barras escuras encostadas na borda e o espaço em branco em volta — e devolve
+ * a caixa que contém apenas o desenho da marca. Não altera nenhum pixel do
+ * logo: só decide onde cortar. Em um arquivo já limpo, é praticamente um no-op.
+ */
+async function recortarLogo(arq) {
+  const { data, info } = await sharp(arq, { density: 600 })
+    .flatten({ background: "#ffffff" })
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const { width: W, height: H, channels: C } = info;
+  const lum = (x, y) => {
+    const i = (y * W + x) * C;
+    return 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+  };
+
+  // 1. descarta barras escuras uniformes encostadas nas bordas laterais
+  const barra = (x) => {
+    let escuros = 0;
+    for (let y = 0; y < H; y++) if (lum(x, y) < 120) escuros++;
+    return escuros > H * 0.95;
+  };
+  let ini = 0;
+  let fim = W - 1;
+  while (ini < W && barra(ini)) ini++;
+  while (fim > ini && barra(fim)) fim--;
+
+  // 2. caixa do desenho: só o que tem tinta forte (ignora traços claros de fundo)
+  const caixa = (limiar) => {
+    let x0 = W,
+      x1 = -1,
+      y0 = H,
+      y1 = -1;
+    for (let y = 0; y < H; y++)
+      for (let x = ini; x <= fim; x++)
+        if (lum(x, y) < limiar) {
+          if (x < x0) x0 = x;
+          if (x > x1) x1 = x;
+          if (y < y0) y0 = y;
+          if (y > y1) y1 = y;
+        }
+    return x1 < 0 ? null : { left: x0, top: y0, width: x1 - x0 + 1, height: y1 - y0 + 1 };
+  };
+
+  const c = caixa(170) || caixa(235);
+  if (!c || c.width < W * 0.05 || c.height < H * 0.05) return null; // nada confiável: usa inteiro
+  return c;
+}
+
 async function prepararLogo() {
   const arq = LOGO_ARQS.map((f) => path.join(__dirname, f)).find((f) => fs.existsSync(f));
   if (!arq) {
@@ -106,7 +155,17 @@ async function prepararLogo() {
   }
 
   const meta = await sharp(arq).metadata();
-  let pipe = sharp(arq, { density: 600 }); // density só afeta a rasterização de SVG
+  let pipe = sharp(arq, { density: 600 }).flatten({ background: "#ffffff" });
+
+  const corte = await recortarLogo(arq);
+  if (corte && (corte.width < meta.width || corte.height < meta.height)) {
+    pipe = pipe.extract(corte);
+    console.log(
+      `• Recorte: ${corte.width}×${corte.height} a partir de (${corte.left},${corte.top})`
+    );
+    meta.width = corte.width;
+    meta.height = corte.height;
+  }
 
   if (meta.width && meta.width < LOGO_LARGURA_ALVO) {
     pipe = pipe
