@@ -1,0 +1,529 @@
+<title>Prévia do Deck NebuTech</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* ---------- tokens da página (seguem o tema do leitor) ---------- */
+:root{
+  --bg:#EDF1F8; --surface:#FFFFFF; --ink:#0E1B3A; --muted:#5A6A8A;
+  --line:#D9E1F0; --soft:#F4F7FC; --accent:#2A63C4; --green:#3E8F45;
+  --pend-bg:#FFF4E0; --pend-ink:#8A5A10; --pend-line:#F0D9AC;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#080F26; --surface:#101A3C; --ink:#E7ECF9; --muted:#94A3C4;
+    --line:#22305C; --soft:#0D1631; --accent:#6E9BF0; --green:#63BE6A;
+    --pend-bg:#33270C; --pend-ink:#F0C579; --pend-line:#5A4517;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#080F26; --surface:#101A3C; --ink:#E7ECF9; --muted:#94A3C4;
+  --line:#22305C; --soft:#0D1631; --accent:#6E9BF0; --green:#63BE6A;
+  --pend-bg:#33270C; --pend-ink:#F0C579; --pend-line:#5A4517;
+}
+/* ---------- cores do deck: fixas, valem nos dois temas ---------- */
+:root{
+  --d-navy:#0C2259; --d-panel:#17356E; --d-blue:#17418C; --d-green:#409942;
+  --d-soft:#F3F6FB; --d-tint:#E4EAF6; --d-ink:#0E1B3A; --d-muted:#5A6A8A;
+  --d-ondark:#BFCCE6; --d-borda:#DDE4F3; --d-contorno:#3358A0; --d-onprim:#DCE6F8;
+  --d-rodape:#8496B8; --d-g1:#2A63C4; --d-g2:#46A94C;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,sans-serif; line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px; margin:0 auto; padding:clamp(24px,4vw,56px) clamp(16px,3vw,32px) 96px;}
+
+/* ---------- cabeçalho do preview ---------- */
+.top{display:flex; flex-direction:column; gap:18px; margin-bottom:38px;}
+.kicker{
+  font-family:"IBM Plex Mono",monospace; font-size:12px; font-weight:600;
+  letter-spacing:.14em; text-transform:uppercase; color:var(--accent);
+}
+h1{font-size:clamp(28px,4.4vw,44px); line-height:1.1; margin:0; letter-spacing:-.02em; text-wrap:balance;}
+.sub{max-width:64ch; color:var(--muted); font-size:16px; margin:0;}
+.legend{
+  display:flex; flex-wrap:wrap; gap:10px; padding:16px; background:var(--surface);
+  border:1px solid var(--line); border-radius:12px;
+}
+.legend p{margin:0 0 4px; width:100%; font-size:13px; color:var(--muted);}
+.tag{
+  font-family:"IBM Plex Mono",monospace; font-size:11px; font-weight:600;
+  letter-spacing:.06em; padding:4px 9px; border-radius:999px; white-space:nowrap;
+  border:1px solid var(--line); color:var(--muted); background:var(--soft);
+}
+.tag.pend{background:var(--pend-bg); color:var(--pend-ink); border-color:var(--pend-line);}
+.tag.img{background:color-mix(in srgb,var(--accent) 12%,transparent); color:var(--accent); border-color:color-mix(in srgb,var(--accent) 30%,transparent);}
+
+/* ---------- moldura de cada slide ---------- */
+.item{margin:0 0 40px;}
+.meta{
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px;
+}
+.num{
+  font-family:"IBM Plex Mono",monospace; font-size:12px; font-weight:600;
+  color:var(--surface); background:var(--ink); border-radius:6px; padding:3px 8px;
+  font-variant-numeric:tabular-nums;
+}
+.name{font-weight:600; font-size:15px;}
+.note{width:100%; margin:10px 0 0; font-size:13.5px; color:var(--muted); max-width:70ch;}
+
+.slide{
+  container-type:inline-size; aspect-ratio:16/9; width:100%; position:relative;
+  overflow:hidden; border-radius:10px; border:1px solid var(--line);
+  box-shadow:0 10px 30px rgba(8,16,42,.10);
+  font-family:Calibri,Carlito,"Segoe UI",system-ui,sans-serif;
+  color:var(--d-ink); background:#fff;
+}
+.slide.dark{background:var(--d-navy); color:#fff; border-color:var(--d-navy);}
+.slide.soft{background:var(--d-soft);}
+
+/* tipografia interna em cqw: 100cqw = 13,333in do slide real */
+.pad{position:absolute; inset:0; padding:5.4cqw 5.625cqw;}
+.eyebrow{
+  font-family:Arial,Helvetica,sans-serif; font-size:1.09cqw; font-weight:700;
+  letter-spacing:.26cqw; text-transform:uppercase; color:var(--d-blue);
+}
+.dark .eyebrow{color:var(--d-green);}
+.stitle{
+  font-family:Arial,Helvetica,sans-serif; font-size:3.54cqw; font-weight:700;
+  line-height:1.16; letter-spacing:-.03cqw; margin:.9cqw 0 0; text-wrap:balance;
+}
+.stitle.big{font-size:4.6cqw; line-height:1.12;}
+.lead{font-size:1.56cqw; line-height:1.42; color:var(--d-muted); margin:1.8cqw 0 0; max-width:74cqw;}
+.dark .lead{color:var(--d-ondark);}
+.row{display:flex; gap:2.6cqw;}
+.grid{display:grid; gap:2.6cqw;}
+.g2{grid-template-columns:repeat(2,1fr);} .g3{grid-template-columns:repeat(3,1fr);}
+.g4{grid-template-columns:repeat(4,1fr); gap:2.2cqw;}
+.stack{display:flex; flex-direction:column; gap:1.1cqw;}
+
+.card{
+  background:#fff; border:1px solid var(--d-borda); border-radius:.8cqw;
+  padding:2.4cqw; box-shadow:0 .5cqw 1.2cqw rgba(12,34,89,.07);
+}
+.soft .card{background:#fff;}
+.dark .card{background:var(--d-panel); border:none; box-shadow:none;}
+.card.flat{background:var(--d-soft); border:none; box-shadow:none;}
+.card.prim{background:var(--d-blue); border:none; color:#fff;}
+.card.navy{background:var(--d-navy); border:none; color:#fff;}
+.ctitle{font-family:Arial,Helvetica,sans-serif; font-size:1.56cqw; font-weight:700; line-height:1.2;}
+.ctxt{font-size:1.3cqw; line-height:1.36; color:var(--d-muted); margin-top:.7cqw;}
+.dark .ctxt,.navy .ctxt{color:var(--d-ondark);} .prim .ctxt{color:var(--d-onprim);}
+.dark .ctitle,.navy .ctitle,.prim .ctitle{color:#fff;}
+
+/* disco de ícone: mesmo gradiente do deck */
+.disc{
+  width:4.6cqw; height:4.6cqw; border-radius:50%; flex:0 0 auto;
+  background:linear-gradient(135deg,var(--d-g1),var(--d-g2));
+  display:grid; place-items:center; color:#fff;
+}
+.disc svg{width:2.2cqw; height:2.2cqw; display:block;}
+.disc.sm{width:3.9cqw; height:3.9cqw;} .disc.sm svg{width:1.9cqw; height:1.9cqw;}
+.disc.num{font-family:Arial,Helvetica,sans-serif; font-weight:700; font-size:1.5cqw;}
+
+.chip{
+  display:inline-flex; align-items:center; justify-content:center;
+  font-size:1.15cqw; font-weight:700; padding:.75cqw 1.5cqw; border-radius:999px;
+  border:1px solid var(--d-contorno); color:#fff;
+}
+.chip.solid{background:var(--d-green); border-color:var(--d-green); color:var(--d-navy); font-family:Cambria,Georgia,serif;}
+.chip.light{border-color:var(--d-borda); color:var(--d-muted);}
+.bullets{margin:1.6cqw 0 0; padding-left:1.6cqw; font-size:1.35cqw; line-height:1.75; color:var(--d-muted);}
+.prim .bullets{color:var(--d-onprim);} .dark .bullets{color:var(--d-ondark);}
+
+.stat{font-family:Arial,Helvetica,sans-serif; font-size:6.2cqw; font-weight:700; line-height:1; color:var(--d-blue);}
+.dark .stat{color:var(--d-green);}
+.statlab{font-size:1.25cqw; color:var(--d-muted); margin-top:.6cqw; max-width:26cqw;}
+.dark .statlab{color:var(--d-ondark);}
+
+/* rodapé do slide */
+.foot{position:absolute; left:5.625cqw; right:5.625cqw; bottom:2.1cqw; display:flex; align-items:center; justify-content:space-between;}
+.foot .lg{width:10cqw; aspect-ratio:1/var(--logo-ratio); background-size:contain; background-repeat:no-repeat; background-position:left center; display:block;}
+.foot span{font-family:Arial,Helvetica,sans-serif; font-size:1cqw; font-weight:700; color:var(--d-blue); font-variant-numeric:tabular-nums;}
+.dark .foot span{color:var(--d-green);}
+
+/* espaço reservado para as imagens que ainda não chegaram */
+.ph{
+  border:.22cqw dashed var(--d-contorno); border-radius:.8cqw; display:grid;
+  place-content:center; text-align:center; gap:.6cqw; padding:1.6cqw;
+  background:repeating-linear-gradient(135deg,rgba(42,99,196,.05) 0 1.4cqw,transparent 1.4cqw 2.8cqw);
+  color:var(--d-blue);
+}
+.dark .ph{border-color:#3E6FBF; color:#9FC0F5; background:repeating-linear-gradient(135deg,rgba(120,170,255,.07) 0 1.4cqw,transparent 1.4cqw 2.8cqw);}
+.ph b{font-family:Arial,Helvetica,sans-serif; font-size:1.5cqw; letter-spacing:.06cqw; text-transform:uppercase;}
+.ph i{font-style:normal; font-size:1.15cqw; opacity:.85;}
+.ph.full{position:absolute; inset:0; border-radius:0; border-width:0;}
+
+/* marcação de conteúdo pendente dentro do slide */
+.miss{
+  display:inline-block; font-family:"IBM Plex Mono",monospace; font-size:1.05cqw;
+  font-weight:600; padding:.45cqw 1cqw; border-radius:.4cqw;
+  background:#FFF3DC; color:#8A5A10; border:1px solid #EBD3A4;
+}
+.dark .miss{background:rgba(240,197,121,.14); color:#F2CE86; border-color:rgba(240,197,121,.4);}
+
+.slide.img-r .foot{right:47cqw}
+.slide.img-l .foot{left:47cqw}
+@media (max-width:640px){ .wrap{padding-bottom:64px} .item{margin-bottom:28px} }
+@media (prefers-reduced-motion:no-preference){ .slide{transition:box-shadow .2s ease} }
+</style>
+<div class="wrap">
+
+<header class="top">
+  <div class="kicker">Prévia de estrutura · v1</div>
+  <h1>Deck comercial NebuTech para o parceiro de facilities</h1>
+  <p class="sub">Dezesseis slides na identidade já aprovada. Esta página é para você conferir <b>ordem, argumento e onde cada imagem entra</b> — o arquivo final continua sendo <code>.pptx</code> e <code>.pdf</code>, com as transições e animações que já estão prontas.</p>
+  <div class="legend">
+    <p>Legenda das marcações:</p>
+    <span class="tag img">área de imagem</span>
+    <span class="tag pend">texto do Plínio</span>
+    <span class="tag pend">dado técnico</span>
+    <span class="tag">estrutura pronta</span>
+  </div>
+</header>
+
+<!-- 01 -->
+<div class="item">
+  <div class="meta"><span class="num">01</span><span class="name">Capa</span><span class="tag img">render de abertura</span></div>
+  <div class="slide dark">
+    <div class="pad">
+      <div class="eyebrow">Apresentação comercial</div>
+      <h2 class="stitle big" style="max-width:52cqw">Desinfecção por<br>nano-aerossol</h2>
+      <p class="lead" style="max-width:44cqw">Um serviço novo para os ambientes que a sua operação já limpa e protege todos os dias.</p>
+      <div class="row" style="margin-top:3cqw; gap:1.1cqw">
+        <span class="chip">Academias</span><span class="chip">Escolas</span>
+        <span class="chip">Clínicas</span><span class="chip">Hotéis</span>
+      </div>
+      <div class="ph" style="position:absolute; right:5.625cqw; top:16cqw; width:34cqw; height:34cqw; border-radius:50%">
+        <b>Render de abertura</b><i>Paerosol MAG em operação</i>
+      </div>
+    </div>
+    <div class="foot"><i class="lg dk" role="img" aria-label="NebuTech"></i><span></span></div>
+  </div>
+  <p class="note">A capa fala com o parceiro de facilities, não com o consumidor final. Os quatro segmentos aparecem já aqui para ele se reconhecer na primeira tela.</p>
+</div>
+
+<!-- 02 -->
+<div class="item">
+  <div class="meta"><span class="num">02</span><span class="name">Agenda</span><span class="tag">estrutura pronta</span></div>
+  <div class="slide">
+    <div class="pad">
+      <div class="eyebrow">Agenda</div>
+      <h2 class="stitle">O que este material entrega</h2>
+      <div class="grid g2" style="margin-top:3.4cqw; row-gap:2cqw">
+        <div class="row" style="gap:1.4cqw; align-items:flex-start"><span class="disc sm num">1</span><div><div class="ctitle">O risco que a limpeza não alcança</div><div class="ctxt">Por que superfície limpa não é superfície segura</div></div></div>
+        <div class="row" style="gap:1.4cqw; align-items:flex-start"><span class="disc sm num">2</span><div><div class="ctitle">Higienizar não é desinfetar</div><div class="ctxt">A diferença que muda o resultado</div></div></div>
+        <div class="row" style="gap:1.4cqw; align-items:flex-start"><span class="disc sm num">3</span><div><div class="ctitle">Como o sistema age</div><div class="ctxt">Do ativo à névoa que alcança o ambiente</div></div></div>
+        <div class="row" style="gap:1.4cqw; align-items:flex-start"><span class="disc sm num">4</span><div><div class="ctitle">Quatro segmentos, quatro argumentos</div><div class="ctxt">Academia, escola, clínica e hotel</div></div></div>
+        <div class="row" style="gap:1.4cqw; align-items:flex-start"><span class="disc sm num">5</span><div><div class="ctitle">Equipamento e produto</div><div class="ctxt">Paerosol MAG e a linha aplicada</div></div></div>
+        <div class="row" style="gap:1.4cqw; align-items:flex-start"><span class="disc sm num">6</span><div><div class="ctitle">Ficha técnica e próximos passos</div><div class="ctxt">Aplicação, duração e reaplicação</div></div></div>
+      </div>
+    </div>
+    <div class="foot"><i class="lg" role="img" aria-label="NebuTech"></i><span>02</span></div>
+  </div>
+</div>
+
+<!-- 03 -->
+<div class="item">
+  <div class="meta"><span class="num">03</span><span class="name">O problema</span><span class="tag pend">dados e fontes</span></div>
+  <div class="slide soft">
+    <div class="pad">
+      <div class="eyebrow">O risco invisível</div>
+      <h2 class="stitle">O que a limpeza não alcança</h2>
+      <p class="lead">A superfície parece limpa — e está. O que decide o contágio é o que sobra depois: no ar, nas frestas, nos tecidos e em tudo que passa de mão em mão.</p>
+      <div class="grid g3" style="margin-top:3.2cqw">
+        <div class="card"><span class="disc">{{ICO:users}}</span><div class="ctitle" style="margin-top:1.4cqw">Circulação alta</div><div class="ctxt">Quanto mais gente passa, mais rápido o ambiente volta a contaminar depois da limpeza.</div></div>
+        <div class="card"><span class="disc">{{ICO:eye}}</span><div class="ctitle" style="margin-top:1.4cqw">Mão, rosto, olhos</div><div class="ctxt">O contato com a superfície vira contato com o rosto em segundos — é assim que o ciclo se fecha.</div></div>
+        <div class="card"><span class="disc">{{ICO:wind}}</span><div class="ctitle" style="margin-top:1.4cqw">Ar e tecidos</div><div class="ctxt">Colchões, cortinas, estofados e dutos de ar ficam fora do alcance do pano e do borrifador.</div></div>
+      </div>
+      <div style="position:absolute; left:5.625cqw; bottom:9cqw"><span class="miss">Entram aqui os dados e artigos que o Plínio vai enviar</span></div>
+    </div>
+    <div class="foot"><i class="lg" role="img" aria-label="NebuTech"></i><span>03</span></div>
+  </div>
+  <p class="note">Este é o slide que justifica a venda: o cliente do parceiro nunca contratou desinfecção porque nunca viu o problema nomeado.</p>
+</div>
+
+<!-- 04 -->
+<div class="item">
+  <div class="meta"><span class="num">04</span><span class="name">Higienizar ≠ desinfetar</span><span class="tag">estrutura pronta</span></div>
+  <div class="slide">
+    <div class="pad">
+      <div class="eyebrow">Conceito</div>
+      <h2 class="stitle">Higienizar não é desinfetar</h2>
+      <p class="lead">Limpar remove o que se vê. Desinfetar elimina o que decide o contágio. São dois serviços — e hoje o seu contrato entrega só o primeiro.</p>
+      <div class="grid g2" style="margin-top:3cqw">
+        <div class="card">
+          <div class="row" style="align-items:center; gap:1.4cqw"><span class="disc">{{ICO:layers}}</span><div class="ctitle" style="font-size:2.2cqw">Higienizar</div></div>
+          <ul class="bullets"><li>Reduz a sujeira aparente</li><li>Remove resíduos, gordura e poeira</li><li>Não garante eliminação de microrganismos</li></ul>
+        </div>
+        <div class="card prim">
+          <div class="row" style="align-items:center; gap:1.4cqw"><span class="disc">{{ICO:shield}}</span><div class="ctitle" style="font-size:2.2cqw">Desinfetar</div></div>
+          <ul class="bullets"><li>Elimina vírus, germes e bactérias</li><li>Age onde o pano não chega</li><li>Alcança ar, tecidos e frestas</li></ul>
+        </div>
+      </div>
+    </div>
+    <div class="foot"><i class="lg" role="img" aria-label="NebuTech"></i><span>04</span></div>
+  </div>
+</div>
+
+<!-- 05 -->
+<div class="item">
+  <div class="meta"><span class="num">05</span><span class="name">Como age</span><span class="tag pend">ativo a confirmar</span></div>
+  <div class="slide dark">
+    <div class="pad">
+      <div class="eyebrow">Tecnologia</div>
+      <h2 class="stitle">Do ativo à névoa que ocupa o ambiente</h2>
+      <p class="lead">O nano-aerossol transforma o produto em partículas leves o bastante para permanecer no ar e alcançar o que a limpeza manual não alcança.</p>
+      <div class="grid g4" style="margin-top:3.2cqw">
+        <div class="card"><span class="disc sm num">1</span><div class="ctitle" style="margin-top:1.2cqw; font-size:1.42cqw">Ativo</div><div class="ctxt">O produto é carregado no equipamento, pronto para uso.</div></div>
+        <div class="card"><span class="disc sm num">2</span><div class="ctitle" style="margin-top:1.2cqw; font-size:1.42cqw">Nebulização</div><div class="ctxt">A névoa é gerada em partículas ultrafinas e distribuída pelo ambiente.</div></div>
+        <div class="card"><span class="disc sm num">3</span><div class="ctitle" style="margin-top:1.2cqw; font-size:1.42cqw">Alcance</div><div class="ctxt">Superfícies, frestas, tecidos e o ar recebem o produto por igual.</div></div>
+        <div class="card"><span class="disc sm num">4</span><div class="ctitle" style="margin-top:1.2cqw; font-size:1.42cqw">Ação</div><div class="ctxt">Os microrganismos são neutralizados sem encharcar o ambiente.</div></div>
+      </div>
+      <div style="position:absolute; left:5.625cqw; bottom:8.6cqw"><span class="miss">Confirmar o ativo e a categoria do produto antes de fechar este texto</span></div>
+    </div>
+    <div class="foot"><i class="lg dk" role="img" aria-label="NebuTech"></i><span>05</span></div>
+  </div>
+</div>
+
+<!-- 06 -->
+<div class="item">
+  <div class="meta"><span class="num">06</span><span class="name">Segurança de uso</span><span class="tag pend">tempo de liberação</span></div>
+  <div class="slide">
+    <div class="pad">
+      <div class="eyebrow">Segurança</div>
+      <h2 class="stitle">Proteção sem parar a operação</h2>
+      <p class="lead">O argumento decisivo para quem administra o ambiente: aplicar não significa interditar, danificar acabamento nem expor quem circula.</p>
+      <div class="grid g2" style="margin-top:3cqw; row-gap:2.4cqw">
+        <div class="row" style="gap:1.4cqw"><span class="disc">{{ICO:feather}}</span><div><div class="ctitle">Sem química agressiva</div><div class="ctxt">Não deixa odor forte nem resíduo que irrite quem usa o espaço em seguida.</div></div></div>
+        <div class="row" style="gap:1.4cqw"><span class="disc">{{ICO:layers}}</span><div><div class="ctitle">Não agride superfícies</div><div class="ctxt">Equipamentos, tecidos, telas e metais seguem sem manchar ou corroer.</div></div></div>
+        <div class="row" style="gap:1.4cqw"><span class="disc">{{ICO:clock}}</span><div><div class="ctitle">Ambiente liberado rápido</div><div class="ctxt"><span class="miss">tempo de liberação a definir</span></div></div></div>
+        <div class="row" style="gap:1.4cqw"><span class="disc">{{ICO:check}}</span><div><div class="ctitle">Processo padronizado</div><div class="ctxt">Mesma dosagem e mesma cobertura a cada aplicação, com registro do serviço.</div></div></div>
+      </div>
+    </div>
+    <div class="foot"><i class="lg" role="img" aria-label="NebuTech"></i><span>06</span></div>
+  </div>
+</div>
+
+<!-- 07 -->
+<div class="item">
+  <div class="meta"><span class="num">07</span><span class="name">Espectro de ação</span><span class="tag pend">vincular ao registro</span></div>
+  <div class="slide dark">
+    <div class="pad">
+      <div class="eyebrow">Eficácia</div>
+      <h2 class="stitle">Contra o que o serviço age</h2>
+      <div class="grid g2" style="margin-top:3cqw">
+        <div class="card">
+          <div class="row" style="align-items:center; gap:1.4cqw"><span class="disc">{{ICO:virus}}</span><div class="ctitle" style="font-size:2.2cqw">Vírus</div></div>
+          <div class="stack" style="margin-top:1.8cqw"><span class="chip">H1N1</span><span class="chip">H5N1</span><span class="chip">SARS-CoV-2 (Covid-19)</span></div>
+        </div>
+        <div class="card">
+          <div class="row" style="align-items:center; gap:1.4cqw"><span class="disc">{{ICO:bio}}</span><div class="ctitle" style="font-size:2.2cqw">Bactérias</div></div>
+          <div class="stack" style="margin-top:1.8cqw"><span class="chip">Salmonella enterica</span><span class="chip">Escherichia coli</span></div>
+        </div>
+      </div>
+      <div style="position:absolute; left:5.625cqw; bottom:8.6cqw"><span class="miss">Amarrar cada alegação ao produto e ao registro que a sustenta</span></div>
+    </div>
+    <div class="foot"><i class="lg dk" role="img" aria-label="NebuTech"></i><span>07</span></div>
+  </div>
+  <p class="note">É o slide de prova — e o mais sensível. O parceiro vai repetir estas palavras para o cliente dele, então cada agente citado precisa estar coberto pelo registro do produto aplicado.</p>
+</div>
+<!-- 08 -->
+<div class="item">
+  <div class="meta"><span class="num">08</span><span class="name">Segmento · Academia</span><span class="tag img">render da academia</span><span class="tag pend">confirmar a fonte do dado</span></div>
+  <div class="slide img-r">
+    <div class="ph" style="position:absolute; right:0; top:0; bottom:0; width:42cqw; border-radius:0; border-width:0 0 0 .22cqw">
+      <b>Render · academia</b><i>1024 × 576 · enviar arquivo</i>
+    </div>
+    <div class="pad" style="padding-right:47cqw">
+      <div class="eyebrow">Segmento 01</div>
+      <h2 class="stitle">Academia</h2>
+      <div class="row" style="align-items:flex-end; gap:1.6cqw; margin-top:2.4cqw">
+        <div class="stat">360×</div>
+        <div class="statlab">mais bactérias no aparelho de musculação do que em um assento sanitário</div>
+      </div>
+      <p class="lead" style="margin-top:2.4cqw; max-width:44cqw">O equipamento passa de mão em mão o dia inteiro, com suor e contato direto com a pele. É o ambiente onde o argumento se vende sozinho.</p>
+      <div class="row" style="gap:1cqw; margin-top:2cqw; flex-wrap:wrap">
+        <span class="chip light">Halteres e barras</span><span class="chip light">Colchonetes</span><span class="chip light">Vestiários</span>
+      </div>
+    </div>
+    <div class="foot"><i class="lg" role="img" aria-label="NebuTech"></i><span>08</span></div>
+  </div>
+  <p class="note">O número grande é o gancho da conversa. Preciso da fonte do estudo para citar embaixo — dado sem fonte, num material que vai para o cliente do parceiro, vira risco.</p>
+</div>
+
+<!-- 09 -->
+<div class="item">
+  <div class="meta"><span class="num">09</span><span class="name">Segmento · Escola</span><span class="tag img">render da escola</span><span class="tag pend">texto do Plínio</span></div>
+  <div class="slide img-l">
+    <div class="ph" style="position:absolute; left:0; top:0; bottom:0; width:42cqw; border-radius:0; border-width:0 .22cqw 0 0">
+      <b>Render · escola</b><i>1024 × 650 · enviar arquivo</i>
+    </div>
+    <div class="pad" style="padding-left:47cqw">
+      <div class="eyebrow">Segmento 02</div>
+      <h2 class="stitle">Escola</h2>
+      <p class="lead" style="margin-top:2.2cqw; max-width:44cqw">A criança toca a superfície e leva a mão ao rosto sem pensar. Em sala, corredor e refeitório, o ciclo se repete o dia inteiro — e a escola responde por ele diante das famílias.</p>
+      <div class="grid g2" style="margin-top:2.4cqw; gap:1.6cqw">
+        <div class="card flat"><div class="ctitle" style="font-size:1.4cqw">Salas e corredores</div></div>
+        <div class="card flat"><div class="ctitle" style="font-size:1.4cqw">Refeitório</div></div>
+        <div class="card flat"><div class="ctitle" style="font-size:1.4cqw">Banheiros</div></div>
+        <div class="card flat"><div class="ctitle" style="font-size:1.4cqw">Brinquedos e materiais</div></div>
+      </div>
+      <div style="margin-top:2cqw"><span class="miss">texto do Plínio entra aqui</span></div>
+    </div>
+    <div class="foot"><i class="lg" role="img" aria-label="NebuTech"></i><span>09</span></div>
+  </div>
+</div>
+
+<!-- 10 -->
+<div class="item">
+  <div class="meta"><span class="num">10</span><span class="name">Segmento · Clínica</span><span class="tag img">falta gerar o render</span><span class="tag pend">texto do Plínio</span></div>
+  <div class="slide img-r">
+    <div class="ph" style="position:absolute; right:0; top:0; bottom:0; width:42cqw; border-radius:0; border-width:0 0 0 .22cqw">
+      <b>Render · clínica</b><i>ainda não gerado</i>
+    </div>
+    <div class="pad" style="padding-right:47cqw">
+      <div class="eyebrow">Segmento 03</div>
+      <h2 class="stitle">Clínica</h2>
+      <p class="lead" style="margin-top:2.2cqw; max-width:44cqw">É o ambiente onde circula quem já está fragilizado. Recepção, sala de espera, macas e ar-condicionado concentram justamente o público que menos pode se expor.</p>
+      <div class="row" style="gap:1cqw; margin-top:2.2cqw; flex-wrap:wrap">
+        <span class="chip light">Recepção e espera</span><span class="chip light">Consultórios</span><span class="chip light">Ar-condicionado</span>
+      </div>
+      <div style="margin-top:2.2cqw"><span class="miss">texto do Plínio entra aqui</span></div>
+    </div>
+    <div class="foot"><i class="lg" role="img" aria-label="NebuTech"></i><span>10</span></div>
+  </div>
+</div>
+
+<!-- 11 -->
+<div class="item">
+  <div class="meta"><span class="num">11</span><span class="name">Segmento · Hotel</span><span class="tag img">render da cozinha</span><span class="tag pend">texto do Plínio</span></div>
+  <div class="slide img-l">
+    <div class="ph" style="position:absolute; left:0; top:0; bottom:0; width:42cqw; border-radius:0; border-width:0 .22cqw 0 0">
+      <b>Render · cozinha</b><i>1024 × 650 · enviar arquivo</i>
+    </div>
+    <div class="pad" style="padding-left:47cqw">
+      <div class="eyebrow">Segmento 04</div>
+      <h2 class="stitle">Hotel</h2>
+      <p class="lead" style="margin-top:2.2cqw; max-width:44cqw">O hóspede avalia o quarto pelo cheiro e pela sensação de limpo. É o único segmento em que a desinfecção aparece direto na avaliação — e na nota pública.</p>
+      <div class="grid g2" style="margin-top:2.4cqw; gap:1.2cqw">
+        <div class="card flat"><div class="ctitle" style="font-size:1.4cqw">Ar e ar-condicionado</div></div>
+        <div class="card flat"><div class="ctitle" style="font-size:1.4cqw">Colchões e camas</div></div>
+        <div class="card flat"><div class="ctitle" style="font-size:1.4cqw">Cortinas e estofados</div></div>
+        <div class="card flat"><div class="ctitle" style="font-size:1.4cqw">Banheiro e cozinha</div></div>
+      </div>
+      <p class="ctxt" style="margin-top:1.6cqw; font-size:1.25cqw">Elimina fungos, vírus e bactérias — e o odor que vem com eles.</p>
+    </div>
+    <div class="foot"><i class="lg" role="img" aria-label="NebuTech"></i><span>11</span></div>
+  </div>
+  <p class="note">Usei aqui o render da cozinha industrial. Se você gerar um render de quarto ou lobby, este slide fica mais forte e a cozinha vira um quinto segmento — alimentação — que vende bem para restaurante e refeitório.</p>
+</div>
+
+<!-- 12 -->
+<div class="item">
+  <div class="meta"><span class="num">12</span><span class="name">Paerosol MAG</span><span class="tag img">render do equipamento</span><span class="tag pend">especificações</span></div>
+  <div class="slide dark">
+    <div class="pad">
+      <div class="eyebrow">Equipamento</div>
+      <h2 class="stitle">Paerosol MAG</h2>
+      <p class="lead" style="max-width:46cqw">O equipamento que leva a névoa ao ambiente inteiro, com a mesma cobertura em toda aplicação — sem depender da mão de quem aplica.</p>
+      <div class="grid g2" style="margin-top:2.6cqw; width:46cqw; gap:1.6cqw">
+        <div class="card"><div class="ctitle" style="font-size:1.4cqw">Cobertura</div><div class="ctxt"><span class="miss">m² por ciclo</span></div></div>
+        <div class="card"><div class="ctitle" style="font-size:1.4cqw">Tempo de ciclo</div><div class="ctxt"><span class="miss">a definir</span></div></div>
+        <div class="card"><div class="ctitle" style="font-size:1.4cqw">Autonomia</div><div class="ctxt"><span class="miss">a definir</span></div></div>
+        <div class="card"><div class="ctitle" style="font-size:1.4cqw">Operação</div><div class="ctxt"><span class="miss">a definir</span></div></div>
+      </div>
+      <div class="ph" style="position:absolute; right:5.625cqw; top:14cqw; width:38cqw; height:32cqw">
+        <b>Render · equipamento</b><i>recortar o corpo do robô</i>
+      </div>
+    </div>
+    <div class="foot"><i class="lg dk" role="img" aria-label="NebuTech"></i><span>12</span></div>
+  </div>
+  <p class="note">Atenção ao enquadramento: nos três renders, a escrita miúda no corpo do robô saiu embaralhada pela IA. Aqui eu corto acima dessa faixa ou aplico o logo real por cima.</p>
+</div>
+
+<!-- 13 -->
+<div class="item">
+  <div class="meta"><span class="num">13</span><span class="name">Produto · Oxyon Pro</span><span class="tag img">rótulo</span><span class="tag pend">categoria do produto</span></div>
+  <div class="slide soft">
+    <div class="pad">
+      <div class="eyebrow">Produto</div>
+      <h2 class="stitle">Oxyon Pro</h2>
+      <p class="lead" style="max-width:44cqw">Fabricado pela Nebutech Sistema Avançado de Limpeza. Pronto para uso, para superfícies laváveis em ambiente profissional e doméstico.</p>
+      <div class="stack" style="margin-top:2.4cqw; width:42cqw; gap:1.4cqw">
+        <div class="row" style="gap:1.4cqw"><span class="disc sm">{{ICO:droplet}}</span><div><div class="ctitle" style="font-size:1.4cqw">Composição</div><div class="ctxt">Água, agentes de limpeza, regulador de pH, estabilizantes e aditivos</div></div></div>
+        <div class="row" style="gap:1.4cqw"><span class="disc sm">{{ICO:home}}</span><div><div class="ctitle" style="font-size:1.4cqw">Indicado para</div><div class="ctxt">Pisos, bancadas, mesas, maçanetas, banheiros e áreas de circulação</div></div></div>
+      </div>
+      <div class="ph" style="position:absolute; right:5.625cqw; top:11cqw; width:40cqw; height:27cqw">
+        <b>Rótulo Oxyon Pro</b><i>usar recorte da parte técnica</i>
+      </div>
+      <div style="position:absolute; left:5.625cqw; bottom:8.6cqw"><span class="miss">Confirmar: este é o produto que sustenta a alegação de desinfecção?</span></div>
+    </div>
+    <div class="foot"><i class="lg" role="img" aria-label="NebuTech"></i><span>13</span></div>
+  </div>
+  <p class="note">Escrevi este slide só com o que está no próprio rótulo. O rótulo tem campos em branco (CNPJ, endereço, SAC, site), então entra recortado na parte técnica — ou você me manda a versão final preenchida.</p>
+</div>
+
+<!-- 14 -->
+<div class="item">
+  <div class="meta"><span class="num">14</span><span class="name">Ficha técnica</span><span class="tag pend">todos os dados</span></div>
+  <div class="slide">
+    <div class="pad">
+      <div class="eyebrow">Catálogo técnico</div>
+      <h2 class="stitle">O que o cliente sempre pergunta</h2>
+      <p class="lead">Foi o pedido do Plínio na reunião: aplicação, duração e de quanto em quanto tempo repetir. É o que decide a proposta comercial.</p>
+      <div class="grid g2" style="margin-top:2.8cqw; row-gap:1.8cqw">
+        <div class="card flat"><div class="row" style="gap:1.4cqw"><span class="disc sm">{{ICO:droplet}}</span><div><div class="ctitle" style="font-size:1.4cqw">Principal ativo</div><div class="ctxt"><span class="miss">a preencher</span></div></div></div></div>
+        <div class="card flat"><div class="row" style="gap:1.4cqw"><span class="disc sm">{{ICO:clock}}</span><div><div class="ctitle" style="font-size:1.4cqw">Tempo de ação</div><div class="ctxt"><span class="miss">a preencher</span></div></div></div></div>
+        <div class="card flat"><div class="row" style="gap:1.4cqw"><span class="disc sm">{{ICO:refresh}}</span><div><div class="ctitle" style="font-size:1.4cqw">Duração da proteção</div><div class="ctxt"><span class="miss">a preencher</span></div></div></div></div>
+        <div class="card flat"><div class="row" style="gap:1.4cqw"><span class="disc sm">{{ICO:repeat}}</span><div><div class="ctitle" style="font-size:1.4cqw">Intervalo de reaplicação</div><div class="ctxt"><span class="miss">a preencher</span></div></div></div></div>
+      </div>
+    </div>
+    <div class="foot"><i class="lg" role="img" aria-label="NebuTech"></i><span>14</span></div>
+  </div>
+</div>
+
+<!-- 15 -->
+<div class="item">
+  <div class="meta"><span class="num">15</span><span class="name">Por que oferecer</span><span class="tag">estrutura pronta</span></div>
+  <div class="slide soft">
+    <div class="pad">
+      <div class="eyebrow">Para o parceiro</div>
+      <h2 class="stitle">Um serviço novo sobre a operação que você já tem</h2>
+      <p class="lead">A sua equipe já está dentro do prédio, já tem a confiança do cliente e já conhece a planta. A desinfecção não pede estrutura nova — pede argumento.</p>
+      <div class="grid g4" style="margin-top:3cqw">
+        <div class="card"><span class="disc sm">{{ICO:repeat}}</span><div class="ctitle" style="margin-top:1.2cqw; font-size:1.42cqw">Receita recorrente</div><div class="ctxt">Serviço periódico, não venda avulsa.</div></div>
+        <div class="card"><span class="disc sm">{{ICO:award}}</span><div class="ctitle" style="margin-top:1.2cqw; font-size:1.42cqw">Peso na renovação</div><div class="ctxt">Entrega o que o concorrente não tem na mesa.</div></div>
+        <div class="card"><span class="disc sm">{{ICO:briefcase}}</span><div class="ctitle" style="margin-top:1.2cqw; font-size:1.42cqw">Sem estrutura nova</div><div class="ctxt">A equipe já está no local todos os dias.</div></div>
+        <div class="card"><span class="disc sm">{{ICO:trending}}</span><div class="ctitle" style="margin-top:1.2cqw; font-size:1.42cqw">Argumento que vende</div><div class="ctxt">Saúde de quem usa o espaço — o cliente entende na hora.</div></div>
+      </div>
+    </div>
+    <div class="foot"><i class="lg" role="img" aria-label="NebuTech"></i><span>15</span></div>
+  </div>
+  <p class="note">Este slide não existia no material anterior e é, na minha leitura, o mais importante: é o único que fala com o parceiro sobre o negócio dele, não sobre o produto.</p>
+</div>
+
+<!-- 16 -->
+<div class="item">
+  <div class="meta"><span class="num">16</span><span class="name">Fecho</span><span class="tag pend">contato</span></div>
+  <div class="slide dark">
+    <div class="pad">
+      <div class="eyebrow">Próximo passo</div>
+      <h2 class="stitle big" style="max-width:56cqw">Vamos levar isso para<br>os seus clientes.</h2>
+      <p class="lead" style="max-width:44cqw">Escolha um segmento, marque uma demonstração no local e veja a aplicação acontecer em operação real.</p>
+      <div class="card" style="margin-top:3cqw; width:46cqw">
+        <div class="row" style="align-items:center; gap:1.4cqw">
+          <span class="disc sm">{{ICO:droplet}}</span>
+          <div class="ctitle" style="font-size:1.5cqw">Agende uma demonstração</div>
+        </div>
+        <div class="ctxt" style="margin-top:1cqw"><span class="miss">contato, site e responsável comercial</span></div>
+      </div>
+    </div>
+    <div class="foot"><i class="lg dk" role="img" aria-label="NebuTech"></i><span>16</span></div>
+  </div>
+</div>
+
+</div>
