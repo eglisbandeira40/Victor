@@ -1,0 +1,203 @@
+<title>Proposta NebuTech</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<style>
+/* Documento comercial da Bandeira Soluções — identidade própria, paleta fixa
+   nos dois temas: é uma peça de marca, como um PDF, não uma interface. */
+:root{
+  --preto:#0D0D0D; --carvao:#191919; --papel:#FFFFFF; --superficie:#F3F2F1;
+  --tinta:#141312; --cinza:#6B6560; --linha:#E4E1DD;
+  --vermelho:#E63232; --vermelho-fundo:#FBECEC; --vermelho-escuro:#A81A1A;
+  --campo:#FFF8E6; --campo-linha:#E8CE93; --campo-tinta:#8A6212;
+  --serif:"Source Serif 4",Georgia,serif;
+  --display:Archivo,"Helvetica Neue",Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--superficie); color:var(--tinta); font-family:var(--serif); font-size:17px; line-height:1.62;}
+.doc{max-width:940px; margin:0 auto; background:var(--papel); box-shadow:0 2px 40px rgba(0,0,0,.10);}
+.pad{padding:clamp(28px,5vw,64px);}
+
+/* ---------- capa ---------- */
+.hero{background:var(--preto); color:#F2F0EE; padding:clamp(32px,5vw,64px);}
+.marca{display:flex; align-items:center; gap:10px; margin-bottom:clamp(28px,5vw,52px);}
+.rec{width:9px; height:9px; border-radius:50%; background:var(--vermelho); flex:0 0 auto;}
+.marca b{font-family:var(--display); font-weight:800; font-size:15px; letter-spacing:.02em;}
+.marca span{font-family:var(--mono); font-size:11px; color:#9A948E; letter-spacing:.08em;}
+.eyebrow{font-family:var(--mono); font-size:11.5px; font-weight:600; letter-spacing:.18em; text-transform:uppercase; color:var(--vermelho);}
+h1{font-family:var(--display); font-weight:800; font-size:clamp(32px,5.4vw,52px); line-height:1.05; letter-spacing:-.025em; margin:14px 0 0; text-wrap:balance;}
+.hero p.linha{font-size:18px; color:#B8B2AC; margin:18px 0 0; max-width:56ch;}
+.meta{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:20px 28px; margin-top:clamp(28px,4vw,44px); padding-top:26px; border-top:1px solid #2C2A28;}
+.meta div{display:flex; flex-direction:column; gap:5px;}
+.meta dt{font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:#8C8680;}
+.meta dd{margin:0; font-family:var(--display); font-weight:600; font-size:15.5px; color:#F2F0EE;}
+
+/* ---------- seções ---------- */
+section{padding:clamp(30px,4.4vw,52px) clamp(28px,5vw,64px); border-top:1px solid var(--linha);}
+.sec-cab{display:flex; align-items:baseline; gap:14px; margin-bottom:22px;}
+.sec-num{font-family:var(--mono); font-size:12px; font-weight:600; color:var(--vermelho); letter-spacing:.1em;}
+h2{font-family:var(--display); font-weight:700; font-size:clamp(21px,2.9vw,27px); letter-spacing:-.015em; margin:0; text-wrap:balance;}
+p{margin:0 0 16px; max-width:70ch;}
+p:last-child{margin-bottom:0;}
+.destaque{font-family:var(--display); font-weight:600; font-size:18.5px; line-height:1.45; letter-spacing:-.01em; max-width:60ch;}
+
+ul.limpa{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:13px;}
+ul.limpa li{display:flex; gap:13px; align-items:flex-start; max-width:72ch;}
+ul.limpa li::before{content:""; width:7px; height:7px; margin-top:10px; border-radius:2px; background:var(--vermelho); flex:0 0 auto;}
+ul.limpa b{font-family:var(--display); font-weight:600;}
+ul.limpa .obs{color:var(--cinza); font-size:15.5px;}
+
+.entrega{display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:14px; margin-top:6px;}
+.entrega div{background:var(--superficie); border-radius:8px; padding:16px 18px;}
+.entrega h3{font-family:var(--display); font-size:15px; font-weight:700; margin:0 0 4px;}
+.entrega p{font-size:15px; color:var(--cinza); margin:0;}
+
+/* ---------- investimento ---------- */
+.valor{border:1.5px solid var(--tinta); border-radius:10px; padding:24px; display:flex; flex-wrap:wrap; gap:18px; align-items:center; justify-content:space-between;}
+.valor .rot{font-family:var(--display); font-weight:700; font-size:19px;}
+.valor .sub{font-size:15.5px; color:var(--cinza); max-width:44ch; margin-top:4px;}
+.opcionais{display:flex; flex-direction:column; gap:10px; margin-top:20px;}
+.opc{display:flex; flex-wrap:wrap; gap:10px; justify-content:space-between; align-items:center; padding:14px 16px; background:var(--superficie); border-radius:8px;}
+.opc span{font-family:var(--display); font-weight:600; font-size:15.5px;}
+.opc small{display:block; font-family:var(--serif); font-weight:400; color:var(--cinza); font-size:14.5px; margin-top:2px;}
+
+/* campos a preencher antes de enviar */
+.campo{display:inline-block; font-family:var(--mono); font-size:13px; font-weight:600; color:var(--campo-tinta); background:var(--campo); border:1px dashed var(--campo-linha); border-radius:5px; padding:4px 10px; white-space:nowrap;}
+.aviso{margin-top:26px; padding:16px 18px; background:var(--vermelho-fundo); border-left:3px solid var(--vermelho); border-radius:0 8px 8px 0; font-size:15.5px; color:#6E2020; max-width:72ch;}
+.aviso b{font-family:var(--display);}
+
+/* passos */
+ol.passos{list-style:none; counter-reset:p; margin:0; padding:0; display:flex; flex-direction:column; gap:16px;}
+ol.passos li{counter-increment:p; display:flex; gap:16px; align-items:flex-start; max-width:70ch;}
+ol.passos li::before{content:counter(p); font-family:var(--mono); font-weight:600; font-size:13px; color:var(--papel); background:var(--preto); width:26px; height:26px; border-radius:50%; display:grid; place-items:center; flex:0 0 auto; margin-top:2px;}
+ol.passos b{font-family:var(--display); font-weight:600;}
+
+/* rodapé */
+footer{background:var(--preto); color:#B8B2AC; padding:clamp(30px,4.4vw,52px) clamp(28px,5vw,64px);}
+footer h2{color:#F2F0EE; margin-bottom:14px;}
+.assina{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:28px; margin-top:32px; padding-top:26px; border-top:1px solid #2C2A28;}
+.assina div{font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:#8C8680;}
+.assina .rasgo{height:1px; background:#3A3835; margin-bottom:9px;}
+footer .fim{margin-top:30px; font-family:var(--mono); font-size:11.5px; color:#77716B;}
+
+@media print{
+  body{background:#fff} .doc{box-shadow:none; max-width:none}
+  .hero,footer{background:#fff; color:#111}
+  .hero p.linha,footer{color:#444}
+  .meta dd,footer h2{color:#111} .meta{border-color:#ccc} .assina .rasgo{background:#999}
+  section{break-inside:avoid}
+}
+</style>
+
+<div class="doc">
+
+<header class="hero">
+  <div class="marca">
+    <i class="rec"></i>
+    <b>BANDEIRA SOLUÇÕES</b>
+    <span>audiovisual · tráfego pago</span>
+  </div>
+  <div class="eyebrow">Proposta comercial</div>
+  <h1>Apresentação comercial<br>NebuTech</h1>
+  <p class="linha">Material de vendas para a NebuTech apresentar o sistema de desinfecção por nano-aerossol ao parceiro de facilities — e para esse parceiro levar o serviço aos clientes que ele já atende.</p>
+  <div class="meta">
+    <div><dt>Para</dt><dd>Plínio Braga · NebuTech</dd></div>
+    <div><dt>De</dt><dd>Bandeira Soluções</dd></div>
+    <div><dt>Data</dt><dd><span class="campo">data de envio</span></dd></div>
+    <div><dt>Validade</dt><dd><span class="campo">15 dias</span></dd></div>
+  </div>
+</header>
+
+<section>
+  <div class="sec-cab"><span class="sec-num">01</span><h2>O que entendi da conversa</h2></div>
+  <p class="destaque">Este material não fala com o consumidor final. Ele é a ferramenta que a empresa de facilities vai usar para vender desinfecção a quem nunca contratou esse serviço.</p>
+  <p style="margin-top:18px">A empresa de facilities já cuida da segurança e da limpeza de escolas, hotéis e clínicas. Ela tem a porta aberta e a confiança do cliente — o que falta é o argumento que justifique um serviço novo. É esse argumento que a apresentação precisa entregar pronto na mão dela.</p>
+  <ul class="limpa">
+    <li><div><b>Quatro segmentos, quatro argumentos.</b> <span class="obs">Academia, escola, clínica e hotel — cada um com o dado e a dor que fazem sentido para aquele comprador.</span></div></li>
+    <li><div><b>Linguagem em dois níveis.</b> <span class="obs">Técnica o bastante para dar segurança sobre o produto, traduzida o bastante para o comprador não-técnico decidir.</span></div></li>
+    <li><div><b>Base na identidade de vocês.</b> <span class="obs">Cores tiradas do próprio logo NebuTech e o produto Oxyon Pro como referência técnica, como combinamos.</span></div></li>
+  </ul>
+</section>
+
+<section>
+  <div class="sec-cab"><span class="sec-num">02</span><h2>O que será entregue</h2></div>
+  <p><b>Apresentação de 16 slides em 16:9</b>, com estrutura de venda do problema ao fechamento: o risco invisível, a diferença entre higienizar e desinfetar, como o sistema age, os quatro segmentos, o equipamento, o produto, a ficha técnica e a chamada para ação.</p>
+  <div class="entrega">
+    <div><h3>Dois formatos</h3><p>Arquivo editável em PowerPoint e PDF para envio — vocês decidem qual usar em cada situação.</p></div>
+    <div><h3>Identidade aplicada</h3><p>Paleta derivada do logo, tipografia definida e sistema de ícones próprio, aplicados slide a slide.</p></div>
+    <div><h3>Tratamento do logo</h3><p>Fundo removido, nitidez recuperada e versão para fundo escuro, geradas a partir do arquivo de vocês.</p></div>
+    <div><h3>Movimento</h3><p>Transição entre slides e animação de entrada dos elementos, para a apresentação ao vivo.</p></div>
+    <div><h3>Imagens tratadas</h3><p>Recorte, ajuste e enquadramento das imagens de ambiente em cada slide de segmento.</p></div>
+    <div><h3>Notas do apresentador</h3><p>Uma orientação por slide, para quem vai apresentar saber o que dizer em cada tela.</p></div>
+  </div>
+  <p style="margin-top:22px"><b>Inclui <span class="campo">2</span> rodadas de ajuste</b> após a primeira entrega, para correções de texto, troca de imagens e refinamento.</p>
+</section>
+
+<section>
+  <div class="sec-cab"><span class="sec-num">03</span><h2>Imagens de ambiente</h2></div>
+  <p>Como vocês não tinham banco de fotos, ficou combinado que eu produziria as imagens. Já foram geradas três cenas — academia, escola e cozinha industrial — mais o tratamento do rótulo do produto.</p>
+  <ul class="limpa">
+    <li><div><b>Incluído no escopo:</b> <span class="obs"><span class="campo">4</span> cenas de ambiente prontas para uso nos slides de segmento.</span></div></li>
+    <li><div><b>Cenas adicionais:</b> <span class="obs">clínica e hotel, para completar os quatro segmentos — orçadas nos opcionais.</span></div></li>
+  </ul>
+</section>
+
+<section>
+  <div class="sec-cab"><span class="sec-num">04</span><h2>Prazo</h2></div>
+  <p><b><span class="campo">X</span> dias úteis</b> para a primeira versão completa, contados do aceite desta proposta <b>e</b> do recebimento dos textos e dados técnicos listados na seção 06 — o que vier por último.</p>
+  <p>Cada rodada de ajuste leva <span class="campo">X</span> dias úteis a partir do retorno consolidado de vocês.</p>
+</section>
+
+<section>
+  <div class="sec-cab"><span class="sec-num">05</span><h2>Investimento</h2></div>
+  <div class="valor">
+    <div>
+      <div class="rot">Escopo completo</div>
+      <div class="sub">Tudo descrito nas seções 02 e 03, nos dois formatos, com as rodadas de ajuste incluídas.</div>
+    </div>
+    <div class="rot" style="font-size:26px"><span class="campo">R$ valor</span></div>
+  </div>
+  <div class="opcionais">
+    <div class="opc"><span>Cenas adicionais de ambiente<small>Clínica e hotel, para fechar os quatro segmentos</small></span><span class="campo">R$ valor</span></div>
+    <div class="opc"><span>Versão por segmento<small>Quatro apresentações curtas, uma para cada mercado</small></span><span class="campo">R$ valor</span></div>
+    <div class="opc"><span>Versão em vídeo<small>A apresentação em vídeo, para envio por WhatsApp e redes</small></span><span class="campo">R$ valor</span></div>
+  </div>
+  <p style="margin-top:20px"><b>Condições:</b> <span class="campo">forma e prazo de pagamento</span></p>
+</section>
+
+<section>
+  <div class="sec-cab"><span class="sec-num">06</span><h2>O que preciso receber de vocês</h2></div>
+  <p>Estes itens travam o início da produção. Quanto antes chegarem, antes começa a contagem do prazo.</p>
+  <ul class="limpa">
+    <li><div><b>Textos dos quatro segmentos.</b> <span class="obs">Os que o Plínio já estava finalizando — academia, escola, clínica e hotel.</span></div></li>
+    <li><div><b>Ficha técnica do produto.</b> <span class="obs">Principal ativo, tempo de ação, duração da proteção e de quanto em quanto tempo reaplicar. Foi o ponto que vocês mesmos levantaram como decisivo para o cliente.</span></div></li>
+    <li><div><b>Definição do produto que sustenta as alegações.</b> <span class="obs">O rótulo do Oxyon Pro descreve um limpador de uso geral. Preciso saber qual produto da linha responde pela desinfecção, para que cada alegação do material esteja coberta pelo registro correto.</span></div></li>
+    <li><div><b>Fontes dos dados.</b> <span class="obs">Os artigos e estudos citados na conversa, incluindo o número de contaminação em aparelhos de academia.</span></div></li>
+    <li><div><b>Logo em vetor e dados de contato.</b> <span class="obs">Arquivo original da marca e as informações que entram no slide de fechamento.</span></div></li>
+  </ul>
+  <div class="aviso"><b>Sobre as alegações técnicas:</b> este material será usado por um terceiro para vender a clientes finais. Toda afirmação de eficácia precisa estar amparada no registro do produto aplicado — por isso o terceiro item acima é o único que não consigo contornar com uma suposição.</div>
+</section>
+
+<section>
+  <div class="sec-cab"><span class="sec-num">07</span><h2>Como seguimos</h2></div>
+  <ol class="passos">
+    <li><div><b>Aceite desta proposta.</b> Basta responder confirmando o escopo e o valor.</div></li>
+    <li><div><b>Envio dos insumos.</b> Os cinco itens da seção 06, por WhatsApp ou e-mail.</div></li>
+    <li><div><b>Primeira versão completa.</b> Entregue no prazo da seção 04, nos dois formatos.</div></li>
+    <li><div><b>Rodadas de ajuste.</b> Vocês consolidam os apontamentos e eu aplico.</div></li>
+    <li><div><b>Entrega final.</b> Arquivos fechados, prontos para a reunião com o parceiro de facilities.</div></li>
+  </ol>
+</section>
+
+<footer>
+  <h2>Vamos começar?</h2>
+  <p style="color:#B8B2AC; max-width:60ch">Qualquer ajuste de escopo pode ser conversado antes do aceite — a proposta é o ponto de partida, não um pacote fechado.</p>
+  <div class="assina">
+    <div><div class="rasgo"></div>Bandeira Soluções</div>
+    <div><div class="rasgo"></div>NebuTech · de acordo</div>
+  </div>
+  <p class="fim"><span class="campo">contato · e-mail · telefone</span></p>
+</footer>
+
+</div>
