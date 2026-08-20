@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Política de Privacidade — Fiado</title>
+  <meta name="description" content="Política de Privacidade do Fiado: quais dados coletamos, como usamos e como você pode solicitar acesso, correção ou exclusão." />
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="apple-touch-icon" href="favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .legal { max-width: 760px; margin: 0 auto; padding: 48px 0 80px; }
+    .legal h1 { font-size: 2rem; margin-bottom: 8px; }
+    .legal .updated { color: var(--ink-soft); font-size: 0.92rem; margin-bottom: 40px; }
+    .legal h2 { font-size: 1.2rem; margin-top: 36px; margin-bottom: 12px; color: var(--brand-dark); }
+    :root[data-theme="dark"] .legal h2, @media (prefers-color-scheme: dark) { .legal h2 { color: var(--brand); } }
+    .legal p, .legal li { color: var(--ink-soft); font-size: 0.98rem; margin-bottom: 12px; }
+    .legal ul { padding-left: 22px; margin-bottom: 12px; }
+    .legal strong { color: var(--ink); }
+    .legal a.btn { display: inline-block; margin-top: 8px; }
+  </style>
+</head>
+<body id="top">
+
+  <nav class="nav">
+    <div class="wrap nav-inner">
+      <a class="logo" href="index.html" aria-label="Fiado">
+        <img class="logo-mark" src="logo-icon.png" alt="Fiado" width="40" height="40" />
+        <span class="logo-word">Fiado</span>
+      </a>
+      <a class="btn btn-ghost btn-sm" href="index.html">Voltar</a>
+    </div>
+  </nav>
+
+  <main class="wrap legal">
+    <h1>Política de Privacidade</h1>
+    <p class="updated">Última atualização: 14 de julho de 2026</p>
+
+    <p>
+      O Fiado é um assistente de WhatsApp que ajuda donos de pequeno comércio e prestadores de serviço a
+      controlar fiado (dívida de cliente) sem precisar de app ou planilha. Esta página explica quais dados
+      a gente coleta, pra que usa, e como você pode pedir acesso, correção ou exclusão.
+    </p>
+
+    <h2>Quem é responsável pelos dados</h2>
+    <p>
+      O Fiado é uma marca do <strong>Grupo SyncHub</strong> (CNPJ 68.159.421/0001-01), responsável pela
+      operação do serviço. Quem usa o Fiado (o "comerciante") é responsável por cadastrar corretamente as
+      informações dos próprios clientes dentro da ferramenta.
+    </p>
+
+    <h2>Quais dados coletamos</h2>
+    <ul>
+      <li><strong>Do comerciante:</strong> número de WhatsApp, nome do negócio (se informado), e as mensagens trocadas com o Fiado.</li>
+      <li><strong>Dos clientes do comerciante:</strong> nome, telefone (quando o comerciante cadastra ou compartilha um contato), valores de dívidas e pagamentos e as datas desses lançamentos. Esses dados são inseridos pelo comerciante, não pelo cliente final — o Fiado nunca conversa diretamente com o cliente do comerciante.</li>
+      <li><strong>Dados técnicos:</strong> identificador da mensagem do WhatsApp (pra evitar processar a mesma mensagem duas vezes) e registros de erro, usados só pra manter o serviço funcionando.</li>
+    </ul>
+
+    <h2>Como usamos esses dados</h2>
+    <ul>
+      <li>Interpretar a mensagem do comerciante (ex: "Zé Carlos, 45,00, almoço") e transformar em um registro de dívida ou pagamento.</li>
+      <li>Calcular saldos, gerar resumos, extratos e lembretes de cobrança.</li>
+      <li>Mandar avisos automáticos (resumo semanal, lembrete de vencimento) quando configurado.</li>
+    </ul>
+    <p>O Fiado <strong>não vende</strong> dados a terceiros e <strong>não usa</strong> essas informações pra publicidade.</p>
+
+    <h2>Com quem compartilhamos</h2>
+    <ul>
+      <li><strong>Meta / WhatsApp Business Platform:</strong> pra enviar e receber as mensagens do WhatsApp.</li>
+      <li><strong>Anthropic (Claude API):</strong> o texto da mensagem é enviado pra interpretar o comando (ex: identificar nome, valor e descrição). Não enviamos telefone nem histórico financeiro nessa chamada, só o texto da mensagem em si.</li>
+      <li><strong>Provedor de hospedagem e banco de dados:</strong> onde as informações ficam armazenadas com acesso restrito.</li>
+    </ul>
+    <p>Não compartilhamos dados com nenhum outro serviço além dos listados acima.</p>
+
+    <h2>Por quanto tempo guardamos os dados</h2>
+    <p>
+      Enquanto a conta do comerciante estiver ativa. Se o comerciante excluir/arquivar a conta de um
+      cliente, o histórico anterior deixa de contar pro saldo, mas pode ficar guardado como registro
+      histórico. Dados podem ser apagados por completo mediante solicitação (veja "Seus direitos" abaixo).
+    </p>
+
+    <h2>Seus direitos</h2>
+    <p>
+      Você pode pedir a qualquer momento pra confirmar quais dados temos, corrigir uma informação errada,
+      ou excluir seus dados (ou os dados de um cliente cadastrado por você) do Fiado. Basta entrar em
+      contato pelo mesmo número de WhatsApp do Fiado.
+    </p>
+
+    <h2>Segurança</h2>
+    <p>
+      As comunicações com o WhatsApp e com os provedores usados pelo Fiado acontecem de forma criptografada
+      (HTTPS), e o acesso ao banco de dados é restrito à operação do serviço.
+    </p>
+
+    <h2>Alterações nesta política</h2>
+    <p>
+      Podemos atualizar esta página conforme o Fiado evolui. A data no topo sempre mostra a versão mais
+      recente.
+    </p>
+
+    <h2>Contato</h2>
+    <p>Dúvidas, correção ou exclusão de dados: fale com a gente pelo próprio WhatsApp do Fiado.</p>
+    <a class="btn btn-primary" href="https://wa.me/5511963069441?text=Oi%2C%20tenho%20uma%20d%C3%BAvida%20sobre%20privacidade">
+      Falar no WhatsApp
+    </a>
+  </main>
+
+  <footer class="wrap">
+    <a class="logo" href="index.html" aria-label="Fiado">
+      <img class="logo-mark" src="logo-icon.png" alt="Fiado" width="40" height="40" />
+      <span class="logo-word">Fiado</span>
+    </a>
+    <span>© 2026 Fiado — uma marca do Grupo SyncHub · CNPJ 68.159.421/0001-01</span>
+  </footer>
+
+</body>
+</html>
