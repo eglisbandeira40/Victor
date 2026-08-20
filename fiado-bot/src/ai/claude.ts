@@ -25,7 +25,9 @@ const RECORD_DEBT_TOOL: Anthropic.Tool = {
   name: "record_debt",
   description:
     "Registra uma nova divida (fiado) de um cliente do comerciante. So chame essa ferramenta quando a mensagem " +
-    "descrever claramente uma venda ou consumo fiado: quem comprou/consumiu e quanto ficou devendo. " +
+    "descrever claramente uma venda ou consumo fiado: quem comprou/consumiu e quanto ficou devendo. O nome, o " +
+    "valor e a descricao podem aparecer em qualquer ordem na frase (ex: 'Zé, 45, almoço' ou '45 do Zé, almoço' " +
+    "ou 'almoço do Zé, 45') - extraia os 3 dados de onde estiverem, sem exigir uma ordem fixa. " +
     "Nao chame para pagamentos, cadastro, fechar/excluir conta ou mensagens sem nome+valor.",
   input_schema: {
     type: "object",
@@ -285,12 +287,20 @@ Voce e um extrator de dados para o Fiado, um bot de WhatsApp que ajuda donos de 
 Hoje e ${todayIso} (${weekday}). Use essa data como referencia pra calcular datas relativas mencionadas
 nas mensagens (ex: "vence em 10 dias", "vence sexta").
 
-O comerciante manda mensagens curtas e informais em portugues, tipo:
+O comerciante manda mensagens curtas e informais em portugues, SEM ORDEM FIXA - nome do cliente, valor e
+descricao podem vir em qualquer posicao na frase, com ou sem virgula separando. Nao exija um formato
+rigido tipo "Nome, valor, descricao": leia a frase inteira e identifique cada dado onde ele estiver,
+mesmo em mensagens mais soltas/corridas. Exemplos:
 "Ze Carlos, 45,00, o almoco de hoje" -> nova divida
 "Ze Carlos, 2, agua" -> nova divida com valor inteiro (2 = R$ 2,00, nao R$ 0,02 nem R$ 200,00)
 "Ze Carlos, 45,00, almoco, vence dia 20" -> nova divida com data de vencimento
 "Cida me deve 5,00, vai pagar dia 20/08" -> nova divida com data de vencimento (20/08 desse ano, ou do
 proximo ano se essa data ja passou)
+"5,00 do Ze comprou arroz" -> nova divida: cliente Ze, R$ 5,00, descricao "arroz" (valor veio ANTES do
+nome, mesma coisa)
+"comprou pao a Maria, 8 reais" -> nova divida: cliente Maria, R$ 8,00, descricao "pao" (nome no meio,
+valor no fim)
+"10 reais o Joao levou hoje" -> nova divida: cliente Joao, R$ 10,00 (sem descricao explicita, tudo bem)
 "cadastrar Ze Carlos, telefone 11987654321" -> cadastro/atualizacao de cliente
 "telefone do Ze Carlos, 11987654321" -> cadastro/atualizacao de cliente
 "Ze Carlos pagou 20,00" ou "Ze Carlos pagou 4" -> pagamento
